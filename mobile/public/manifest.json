@@ -1,0 +1,10 @@
+{
+  "name": "Trakie",
+  "short_name": "Trakie",
+  "description": "AI-powered inventory receiving assistant",
+  "start_url": "/receive",
+  "display": "standalone",
+  "background_color": "#0A0A0A",
+  "theme_color": "#0A0A0A",
+  "icons": []
+}

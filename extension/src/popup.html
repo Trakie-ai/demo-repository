@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Trakie</title>
+  <link rel="stylesheet" href="../styles/popup.css" />
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <h1 class="logo">Trakie</h1>
+      <p class="tagline">Inventory Receiving Assistant</p>
+    </header>
+
+    <main class="content">
+      <div id="qr-container" class="qr-container">
+        <p class="qr-placeholder">QR code will appear here</p>
+      </div>
+
+      <div id="status" class="status">
+        <span class="status-dot"></span>
+        <span class="status-text">Disconnected</span>
+      </div>
+    </main>
+  </div>
+
+  <script src="../dist/popup.js" type="module"></script>
+</body>
+</html>

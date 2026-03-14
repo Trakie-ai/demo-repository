@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "Trakie",
+  "version": "0.1.0",
+  "description": "AI-powered inventory receiving assistant for Dutchie backoffice",
+  "permissions": ["activeTab", "storage"],
+  "host_permissions": ["https://*.dutchie.com/*"],
+  "action": {
+    "default_popup": "src/popup.html",
+    "default_title": "Trakie"
+  },
+  "background": {
+    "service_worker": "dist/background.js",
+    "type": "module"
+  },
+  "icons": {}
+}
