@@ -4,14 +4,15 @@
   "private": true,
   "description": "Trakie Chrome extension for Dutchie backoffice",
   "scripts": {
-    "build": "tsc",
-    "watch": "tsc --watch"
+    "build": "node build.mjs",
+    "watch": "node build.mjs --watch"
   },
   "dependencies": {
     "socket.io-client": "^4.8.1",
     "qrcode": "^1.5.4"
   },
   "devDependencies": {
+    "esbuild": "^0.24.0",
     "typescript": "^5.7.0",
     "@types/chrome": "^0.0.287",
     "@types/qrcode": "^1.5.5"
