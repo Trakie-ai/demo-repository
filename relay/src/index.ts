@@ -84,6 +84,16 @@ io.on("connection", (socket) => {
     }
   });
 
+  socket.on("image:captured", (data) => {
+    const { sessionId } = socket.data;
+    if (sessionId) {
+      socket.to(sessionId).emit("image:captured", data);
+      console.log(
+        `[socket] image:captured relayed in session ${sessionId} (${data.imageData.length} chars)`
+      );
+    }
+  });
+
   socket.on("disconnect", (reason) => {
     console.log(`[socket] disconnected: ${socket.id} (${reason})`);
 

@@ -79,6 +79,18 @@ function connectRelay(sessionId: string) {
     setStatus("waiting");
   });
 
+  socket.on(
+    "image:captured",
+    (data: { sessionId: string; imageData: string; captureType: string }) => {
+      console.log(
+        "[trakie] image received",
+        data.imageData.length,
+        "chars",
+        `(~${Math.round(data.imageData.length * 0.75 / 1024)}KB)`
+      );
+    }
+  );
+
   socket.on("disconnect", () => {
     setStatus("disconnected");
   });

@@ -1,0 +1,34 @@
+  What's needed before publishing                               
+                                                                                                                                           
+  1. Icons (required) — You need PNG icons at 16x16, 48x48, and 128x128 in the icons/ folder. The 128x128 is also used as the store listing
+   icon. Have your client/designer provide these.                                                                                          
+  2. Store listing assets (required):                                                                                                      
+    - At least 1 screenshot (1280x800 or 640x400)                                                                                          
+    - Detailed description                                                                                                                 
+    - Category selection                       
+  3. Developer account — A Chrome Web Store developer account costs a one-time $5 registration fee
+
+  How to publish
+
+  Once you have icons and the production build:
+
+  1. Build with production URLs:
+  cd extension
+  RELAY_URL=https://<your-railway-domain> \
+  MOBILE_URL=https://app.trakie.ai \
+  npm run build
+  2. Create a ZIP (excluding node_modules):
+  cd extension
+  zip -r trakie-extension.zip manifest.json src/popup.html styles/ dist/ icons/ -x "*.map"
+  3. Upload to Chrome Web Store:
+    - Go to Chrome Web Store Developer Dashboard
+    - Click New Item → upload the ZIP
+    - Fill in listing details, screenshots, category
+    - Submit for review
+
+  Timeline
+
+  Chrome review typically takes 1-3 business days. For now, your client can use it as an unpacked extension (load via chrome://extensions)
+  while waiting for approval.
+
+  Bottom line: You need icons first. Everything else is ready. Want me to generate placeholder icons so you can submit?

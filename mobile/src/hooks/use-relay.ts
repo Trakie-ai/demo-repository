@@ -76,5 +76,18 @@ export function useRelay(sessionId: string | null) {
     };
   }, [sessionId]);
 
-  return { status, disconnect };
+  const sendImage = useCallback(
+    (imageData: string) => {
+      const socket = socketRef.current;
+      if (!socket || !sessionId) return;
+      socket.emit("image:captured", {
+        sessionId,
+        imageData,
+        captureType: "invoice" as const,
+      });
+    },
+    [sessionId]
+  );
+
+  return { status, disconnect, sendImage };
 }

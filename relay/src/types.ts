@@ -6,6 +6,12 @@ export interface ServerToClientEvents {
   "session:device-disconnected": (data: {
     deviceType: "extension" | "mobile";
   }) => void;
+  /** Relay a captured image from mobile to extension */
+  "image:captured": (data: {
+    sessionId: string;
+    imageData: string;
+    captureType: "invoice";
+  }) => void;
   /** Generic error */
   error: (data: { message: string }) => void;
 }
@@ -17,6 +23,12 @@ export interface ClientToServerEvents {
     data: { sessionId: string; deviceType: "extension" | "mobile" },
     callback: (response: { ok: boolean; error?: string }) => void
   ) => void;
+  /** Send a captured image to be relayed to the extension */
+  "image:captured": (data: {
+    sessionId: string;
+    imageData: string;
+    captureType: "invoice";
+  }) => void;
 }
 
 /** Data stored on each socket */
