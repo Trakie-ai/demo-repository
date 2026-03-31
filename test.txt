@@ -1,0 +1,38 @@
+ End-to-End Flow Test
+
+  1. Build & load the extension
+  cd extension && npm run build
+  1. Load unpacked from extension/dist in chrome://extensions
+  2. Click the Trakie extension icon — you should see:
+    - Dark background (#070709) with gold gradient "Trakie" logo
+    - Gold QR code on dark background
+    - Status: "Waiting for mobile…" with pulsing dot
+  3. Open your phone and scan the QR — on the mobile PWA you should see:
+    - Glass navbar with gold "Trakie" + "INVENTORY RECEIVING" label
+    - If no ?session= param in URL: QR scanner view appears
+    - If session param exists (from QR): connecting → paired status
+  4. Both screens show "Connected" — target is within 5 seconds of scanning
+  5. Camera auto-activates after pairing:
+    - Rear camera opens full-screen
+    - Gold corner brackets frame the document area
+    - "Hold still" text in white, turns gold when stable
+  6. Hold phone steady over a document (~1 second):
+    - Corner brackets turn gold when stable
+    - Progress ring fills up
+    - Phone vibrates once on auto-capture
+    - Brief gold flash overlay
+    - "Image sent" confirmation with gold checkmark
+  7. Check extension console (right-click extension popup → Inspect):
+    - Should log [trakie] image received XXXX chars (~XXX KB)
+
+  Test Across Devices/Networks
+
+  - iPhone Safari
+  - Android Chrome
+  - Different WiFi networks (phone on cellular, desktop on WiFi)
+
+  What to Verify Visually
+
+  - No green (#2D6A4F) anywhere — everything should be dark + gold
+  - Only "Inventory Receiving" — no other tabs or navigation
+  - Production URLs (app.trakie.ai), not localhost

@@ -1,4 +1,20 @@
 import * as esbuild from "esbuild";
+import { readFileSync } from "fs";
+
+// Load .env.local (esbuild doesn't read dotenv files automatically)
+try {
+  const envFile = readFileSync(".env.local", "utf-8");
+  for (const line of envFile.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const [key, ...rest] = trimmed.split("=");
+    if (key && rest.length) {
+      process.env[key.trim()] = rest.join("=").trim();
+    }
+  }
+} catch {
+  // .env.local not found, use defaults
+}
 
 const watch = process.argv.includes("--watch");
 
