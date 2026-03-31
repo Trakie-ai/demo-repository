@@ -1,13 +1,26 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Bodoni+Moda:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@500;700&display=swap');
+
 :root {
-  --color-primary: #2D6A4F;
-  --color-primary-light: #40916C;
-  --color-bg-primary: #0A0A0A;
-  --color-bg-card: #1A1A1A;
-  --color-border: #2A2A2A;
-  --color-text-primary: #F5F5F5;
-  --color-text-secondary: #A0A0A0;
-  --font-sans: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --radius: 8px;
+  --color-bg: #070709;
+  --color-bg-mid: #0F0F13;
+  --color-gold: #C9A85C;
+  --color-gold-dark: #B8923E;
+  --color-text-primary: #FAFAF8;
+  --color-text-secondary: #E8E8E8;
+  --color-text-muted: #A8A093;
+
+  --card-bg: rgba(255, 255, 255, 0.03);
+  --card-border: rgba(201, 168, 92, 0.2);
+  --card-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+
+  --font-body: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-display: 'Bodoni Moda', 'Georgia', serif;
+  --font-brand: 'DM Sans', sans-serif;
+
+  --radius-sm: 4px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+
   --spacing-xs: 4px;
   --spacing-sm: 8px;
   --spacing-md: 16px;
@@ -24,84 +37,121 @@
 body {
   width: 360px;
   min-height: 480px;
-  background-color: var(--color-bg-primary);
+  background: linear-gradient(180deg, #070709 0%, #0F0F13 50%, #070709 100%);
   color: var(--color-text-primary);
-  font-family: var(--font-sans);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .container {
   display: flex;
   flex-direction: column;
-  padding: var(--spacing-lg);
+  padding: var(--spacing-xl) var(--spacing-lg);
   gap: var(--spacing-lg);
 }
 
+/* Header */
 .header {
   text-align: center;
+  padding-bottom: var(--spacing-sm);
 }
 
 .logo {
-  font-size: 24px;
+  font-family: var(--font-display);
+  font-size: 36px;
   font-weight: 700;
-  color: var(--color-primary-light);
+  background: linear-gradient(135deg, var(--color-gold) 0%, var(--color-gold-dark) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: 1px;
 }
 
 .tagline {
+  font-family: var(--font-body);
   font-size: 13px;
-  color: var(--color-text-secondary);
+  color: var(--color-text-muted);
   margin-top: var(--spacing-xs);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
 }
 
+/* Content */
 .content {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-lg);
 }
 
+/* QR Container — glass card */
 .qr-container {
-  background-color: var(--color-bg-card);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--card-shadow);
   padding: var(--spacing-xl);
   display: flex;
   align-items: center;
   justify-content: center;
   min-height: 280px;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
+}
+
+.qr-container:hover {
+  border-color: rgba(201, 168, 92, 0.5);
+  box-shadow: 0 20px 40px rgba(201, 168, 92, 0.2);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.qr-container canvas {
+  border-radius: var(--radius-md);
 }
 
 .qr-placeholder {
-  color: var(--color-text-secondary);
+  color: var(--color-text-muted);
   font-size: 14px;
 }
 
+/* Status indicator */
 .status {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
   justify-content: center;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
 }
 
 .status-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background-color: var(--color-text-secondary);
+  background-color: var(--color-text-muted);
+  flex-shrink: 0;
 }
 
 .status-dot.connected {
-  background-color: var(--color-primary);
+  background-color: var(--color-gold);
+  box-shadow: 0 0 8px rgba(201, 168, 92, 0.6);
 }
 
 .status-dot.waiting {
+  background-color: var(--color-gold);
   animation: pulse 1.5s ease-in-out infinite;
 }
 
 @keyframes pulse {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+  50% { opacity: 0.3; }
 }
 
 .status-text {
   font-size: 13px;
-  color: var(--color-text-secondary);
+  color: var(--color-text-muted);
+  letter-spacing: 0.3px;
 }

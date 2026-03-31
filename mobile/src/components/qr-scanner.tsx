@@ -44,7 +44,11 @@ export function QrScanner({ onScan }: QrScannerProps) {
     <div
       id="qr-reader"
       ref={containerRef}
-      className="w-full max-w-sm overflow-hidden rounded-xl border border-border"
+      className="w-full max-w-sm overflow-hidden rounded-xl"
+      style={{
+        border: "1px solid rgba(201, 168, 92, 0.2)",
+        boxShadow: "0 8px 32px rgba(0, 0, 0, 0.1)",
+      }}
     />
   );
 }

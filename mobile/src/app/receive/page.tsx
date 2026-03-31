@@ -10,12 +10,12 @@ import { useCamera } from "@/hooks/use-camera";
 
 const STATUS_CONFIG: Record<
   Exclude<RelayStatus, "idle" | "paired">,
-  { label: string; dotClass: string }
+  { label: string; dotColor: string }
 > = {
-  connecting: { label: "Connecting…", dotClass: "" },
-  joined: { label: "Waiting for extension…", dotClass: "" },
-  disconnected: { label: "Disconnected", dotClass: "bg-red-500" },
-  error: { label: "Connection error", dotClass: "bg-red-500" },
+  connecting: { label: "Connecting…", dotColor: "bg-text-muted" },
+  joined: { label: "Waiting for extension…", dotColor: "bg-text-muted" },
+  disconnected: { label: "Disconnected", dotColor: "bg-red-500" },
+  error: { label: "Connection error", dotColor: "bg-red-500" },
 };
 
 // ─── Progress ring (SVG) ───────────────────────────────────────────────────
@@ -34,14 +34,14 @@ function ProgressRing({
   return (
     <svg width="72" height="72" viewBox="0 0 72 72" className="rotate-[-90deg]">
       {/* Track */}
-      <circle cx="36" cy="36" r={r} fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="4" />
+      <circle cx="36" cy="36" r={r} fill="none" stroke="rgba(201,168,92,0.2)" strokeWidth="4" />
       {/* Progress */}
       <circle
         cx="36"
         cy="36"
         r={r}
         fill="none"
-        stroke={isStable ? "#4ade80" : "#ffffff"}
+        stroke={isStable ? "#C9A85C" : "rgba(255,255,255,0.6)"}
         strokeWidth="4"
         strokeDasharray={`${dash} ${circ}`}
         strokeLinecap="round"
@@ -54,7 +54,7 @@ function ProgressRing({
 // ─── Corner brackets overlay ──────────────────────────────────────────────
 
 function CornerBrackets({ isStable }: { isStable: boolean }) {
-  const color = isStable ? "#4ade80" : "rgba(255,255,255,0.8)";
+  const color = isStable ? "#C9A85C" : "rgba(255,255,255,0.5)";
   const size = 28;
   const stroke = 3;
 
@@ -145,7 +145,10 @@ function CameraView({
 
       {/* Flash overlay */}
       {flash && (
-        <div className="absolute inset-0 bg-white opacity-60 pointer-events-none z-10" />
+        <div
+          className="absolute inset-0 pointer-events-none z-10"
+          style={{ background: "rgba(201, 168, 92, 0.3)" }}
+        />
       )}
 
       {/* Corner-bracket guide box */}
@@ -160,12 +163,12 @@ function CameraView({
           <span
             className="text-sm font-semibold tracking-widest uppercase"
             style={{
-              color: isStable ? "#4ade80" : "rgba(255,255,255,0.7)",
+              color: isStable ? "#C9A85C" : "rgba(255,255,255,0.7)",
               transition: "color 0.3s",
               textShadow: "0 1px 4px rgba(0,0,0,0.8)",
             }}
           >
-            {phase === "sent" ? "Sent ✓" : isStable ? "Capturing…" : "Hold still"}
+            {phase === "sent" ? "Sent" : isStable ? "Capturing…" : "Hold still"}
           </span>
         </div>
       </div>
@@ -178,9 +181,19 @@ function CameraView({
       {/* "Sent" confirmation overlay */}
       {phase === "sent" && (
         <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/70">
-          <span className="text-5xl">✓</span>
-          <p className="mt-4 text-lg font-semibold text-white">Image sent</p>
-          <p className="mt-1 text-sm text-white/60">Extension received the image</p>
+          <div
+            className="flex h-20 w-20 items-center justify-center rounded-full"
+            style={{
+              background: "linear-gradient(135deg, #C9A85C 0%, #B8923E 100%)",
+              boxShadow: "0 0 40px rgba(201, 168, 92, 0.4)",
+            }}
+          >
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#000" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          </div>
+          <p className="mt-5 text-lg font-semibold" style={{ color: "#FAFAF8" }}>Image sent</p>
+          <p className="mt-1 text-sm" style={{ color: "#A8A093" }}>Extension received the image</p>
         </div>
       )}
     </div>
@@ -230,40 +243,77 @@ function ReceiveContent() {
   // ── Connection / QR-scan view ──
   const showScanner = !sessionId;
   const nonPaired = status === "idle" || status === "paired"
-    ? { label: "Connecting…", dotClass: "" }
+    ? { label: "Connecting…", dotColor: "bg-text-muted" }
     : STATUS_CONFIG[status as keyof typeof STATUS_CONFIG];
-  const { label, dotClass } = nonPaired;
+  const { label, dotColor } = nonPaired;
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
-      <header className="flex items-center justify-between border-b border-border px-4 py-3">
-        <h1 className="text-lg font-semibold text-primary-light">Trakie</h1>
-        <span className="text-sm text-text-secondary">Inventory Receiving</span>
+      {/* Header — glass navbar */}
+      <header
+        className="flex items-center justify-between px-5 py-4"
+        style={{
+          background: "rgba(7, 7, 9, 0.8)",
+          borderBottom: "1px solid rgba(201, 168, 92, 0.2)",
+          backdropFilter: "blur(10px)",
+          WebkitBackdropFilter: "blur(10px)",
+        }}
+      >
+        <h1
+          className="text-xl font-bold"
+          style={{
+            fontFamily: "var(--font-display)",
+            background: "linear-gradient(135deg, #C9A85C 0%, #B8923E 100%)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            backgroundClip: "text",
+          }}
+        >
+          Trakie
+        </h1>
+        <span className="text-sm tracking-wide uppercase" style={{ color: "#A8A093", letterSpacing: "1px", fontSize: "11px" }}>
+          Inventory Receiving
+        </span>
       </header>
 
-      <main className="flex flex-1 flex-col items-center justify-center gap-6 p-6">
+      <main className="flex flex-1 flex-col items-center justify-center gap-8 p-6">
         {showScanner ? (
-          <div className="flex flex-col items-center gap-4">
-            <p className="text-sm text-text-secondary">
+          <div className="flex flex-col items-center gap-5">
+            <p className="text-sm" style={{ color: "#A8A093" }}>
               Scan the QR code from your Trakie extension
             </p>
             <QrScanner onScan={handleScan} />
           </div>
         ) : (
-          <div className="flex flex-col items-center gap-4 text-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-bg-card border border-border">
-              <span className="text-2xl">
+          <div className="flex flex-col items-center gap-5 text-center">
+            {/* Icon container — glass card */}
+            <div
+              className="flex h-20 w-20 items-center justify-center rounded-2xl"
+              style={{
+                background: "rgba(255, 255, 255, 0.03)",
+                border: "1px solid rgba(201, 168, 92, 0.2)",
+                boxShadow: "0 8px 32px rgba(0, 0, 0, 0.1)",
+              }}
+            >
+              <span className="text-3xl">
                 {status === "paired" ? "✅" : "📦"}
               </span>
             </div>
-            <h2 className="text-xl font-semibold">
+            <h2 className="text-xl font-semibold" style={{ color: "#FAFAF8" }}>
               {status === "paired" ? "Device Paired" : "Inventory Receiving"}
             </h2>
-            <div className="flex items-center gap-2">
+            {/* Status pill */}
+            <div
+              className="flex items-center gap-2 px-4 py-2 rounded-xl"
+              style={{
+                background: "rgba(255, 255, 255, 0.03)",
+                border: "1px solid rgba(201, 168, 92, 0.2)",
+              }}
+            >
               <span
-                className={`h-2 w-2 rounded-full ${dotClass || "bg-text-secondary"}`}
+                className={`h-2 w-2 rounded-full ${dotColor}`}
               />
-              <span className="text-sm text-text-secondary">{label}</span>
+              <span className="text-sm" style={{ color: "#A8A093" }}>{label}</span>
             </div>
           </div>
         )}
@@ -278,7 +328,7 @@ export default function ReceivePage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen items-center justify-center bg-background text-text-secondary">
+        <div className="flex min-h-screen items-center justify-center bg-background" style={{ color: "#A8A093" }}>
           Loading…
         </div>
       }

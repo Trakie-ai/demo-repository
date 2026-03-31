@@ -37,8 +37,8 @@ async function renderQR(sessionId: string) {
     width: 240,
     margin: 2,
     color: {
-      dark: "#F5F5F5",
-      light: "#1A1A1A",
+      dark: "#C9A85C",
+      light: "#070709",
     },
   });
 }
