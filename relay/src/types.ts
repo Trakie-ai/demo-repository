@@ -1,3 +1,8 @@
+import type {
+  ExtractionCompletePayload,
+  ExtractionErrorPayload,
+} from "./extraction/types.js";
+
 /** Events emitted by the server to clients */
 export interface ServerToClientEvents {
   /** Notify that a device has paired to the session */
@@ -12,6 +17,10 @@ export interface ServerToClientEvents {
     imageData: string;
     captureType: "invoice";
   }) => void;
+  /** Extraction completed successfully */
+  "extraction:complete": (data: ExtractionCompletePayload) => void;
+  /** Extraction failed */
+  "extraction:error": (data: ExtractionErrorPayload) => void;
   /** Generic error */
   error: (data: { message: string }) => void;
 }

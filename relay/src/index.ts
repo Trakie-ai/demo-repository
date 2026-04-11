@@ -8,6 +8,7 @@ import type {
   ClientToServerEvents,
   SocketData,
 } from "./types.js";
+import { extractInvoiceData } from "./extraction/index.js";
 
 const PORT = parseInt(process.env.PORT || "3001", 10);
 const CORS_ORIGIN = process.env.CORS_ORIGIN || "*";
@@ -87,10 +88,33 @@ io.on("connection", (socket) => {
   socket.on("image:captured", (data) => {
     const { sessionId } = socket.data;
     if (sessionId) {
+      // Forward raw image immediately
       socket.to(sessionId).emit("image:captured", data);
       console.log(
         `[socket] image:captured relayed in session ${sessionId} (${data.imageData.length} chars)`
       );
+
+      // Run extraction async — never blocks the relay
+      extractInvoiceData(data.imageData)
+        .then((extraction) => {
+          io.to(sessionId).emit("extraction:complete", {
+            sessionId,
+            extraction,
+            completedAt: new Date().toISOString(),
+          });
+          console.log(
+            `[extraction] complete for session ${sessionId} — ${extraction.lineItems.length} line item(s)`
+          );
+        })
+        .catch((err: unknown) => {
+          const message = err instanceof Error ? err.message : String(err);
+          io.to(sessionId).emit("extraction:error", {
+            sessionId,
+            error: message,
+            failedAt: new Date().toISOString(),
+          });
+          console.error(`[extraction] failed for session ${sessionId}:`, message);
+        });
     }
   });
 
@@ -103,6 +127,12 @@ io.on("connection", (socket) => {
     }
   });
 });
+
+if (!process.env.ANTHROPIC_API_KEY) {
+  console.warn(
+    "[relay] WARNING: ANTHROPIC_API_KEY not set — invoice extraction will fail"
+  );
+}
 
 httpServer.listen(PORT, () => {
   console.log(`[relay] server listening on http://localhost:${PORT}`);
