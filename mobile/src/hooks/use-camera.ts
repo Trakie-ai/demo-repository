@@ -4,14 +4,14 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { compressFrame } from "@/lib/image-utils";
 
 const MAD_THRESHOLD = 8.0;
-const STABLE_FRAMES_REQUIRED = 10;
+const STABLE_FRAMES_REQUIRED = 20;
 const DETECTION_INTERVAL_MS = 100;
 const OFFSCREEN_WIDTH = 160;
 const OFFSCREEN_HEIGHT = 120;
 
 // Minimum edge density (0–1) to consider a document present in frame.
-// A blank wall/ceiling is ~0.02–0.05; a document with text is typically 0.10+.
-const EDGE_DENSITY_THRESHOLD = 0.08;
+// A blank wall/ceiling is ~0.02–0.05; a document with text is typically 0.15+.
+const EDGE_DENSITY_THRESHOLD = 0.15;
 
 export interface UseCameraResult {
   videoRef: React.RefObject<HTMLVideoElement | null>;
