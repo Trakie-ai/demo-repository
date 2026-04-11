@@ -64,5 +64,13 @@ export async function extractInvoiceData(
     throw new Error("Claude did not return a tool_use block");
   }
 
-  return toolBlock.input as ExtractionResponse;
+  const input = toolBlock.input as Record<string, unknown>;
+
+  // Validate expected shape
+  if (!input || !Array.isArray(input.lineItems)) {
+    console.error("[extraction] unexpected response shape:", JSON.stringify(input, null, 2));
+    throw new Error("Claude returned unexpected response shape — missing lineItems array");
+  }
+
+  return input as unknown as ExtractionResponse;
 }

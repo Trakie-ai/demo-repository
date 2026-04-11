@@ -103,7 +103,7 @@ io.on("connection", (socket) => {
             completedAt: new Date().toISOString(),
           });
           console.log(
-            `[extraction] complete for session ${sessionId} — ${extraction.lineItems.length} line item(s)`
+            `[extraction] complete for session ${sessionId} — ${extraction.lineItems?.length ?? 0} line item(s)`
           );
         })
         .catch((err: unknown) => {
