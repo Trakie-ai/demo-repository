@@ -18,39 +18,6 @@ const STATUS_CONFIG: Record<
   error: { label: "Connection error", dotColor: "bg-red-500" },
 };
 
-// ─── Progress ring (SVG) ───────────────────────────────────────────────────
-
-function ProgressRing({
-  progress,
-  isStable,
-}: {
-  progress: number;
-  isStable: boolean;
-}) {
-  const r = 28;
-  const circ = 2 * Math.PI * r;
-  const dash = circ * progress;
-
-  return (
-    <svg width="72" height="72" viewBox="0 0 72 72" className="rotate-[-90deg]">
-      {/* Track */}
-      <circle cx="36" cy="36" r={r} fill="none" stroke="rgba(201,168,92,0.2)" strokeWidth="4" />
-      {/* Progress */}
-      <circle
-        cx="36"
-        cy="36"
-        r={r}
-        fill="none"
-        stroke={isStable ? "#C9A85C" : "rgba(255,255,255,0.6)"}
-        strokeWidth="4"
-        strokeDasharray={`${dash} ${circ}`}
-        strokeLinecap="round"
-        style={{ transition: "stroke-dasharray 0.1s linear, stroke 0.2s" }}
-      />
-    </svg>
-  );
-}
-
 // ─── Corner brackets overlay ──────────────────────────────────────────────
 
 function CornerBrackets({ isStable }: { isStable: boolean }) {
@@ -110,27 +77,31 @@ function CornerBrackets({ isStable }: { isStable: boolean }) {
 
 // ─── Camera view ──────────────────────────────────────────────────────────
 
-type CapturePhase = "capturing" | "sent";
+type CapturePhase = "ready" | "sent";
 
 function CameraView({
   onCapture,
 }: {
   onCapture: (imageData: string) => void;
 }) {
-  const [phase, setPhase] = useState<CapturePhase>("capturing");
+  const [phase, setPhase] = useState<CapturePhase>("ready");
   const [flash, setFlash] = useState(false);
 
-  const handleAutoCapture = useCallback(
-    (imageData: string) => {
-      setFlash(true);
-      setTimeout(() => setFlash(false), 200);
-      onCapture(imageData);
-      setPhase("sent");
-    },
-    [onCapture]
-  );
+  const { videoRef, capture } = useCamera();
 
-  const { videoRef, isStable, stableProgress } = useCamera(handleAutoCapture);
+  const handleCapture = useCallback(() => {
+    const imageData = capture();
+    if (!imageData) return;
+    navigator.vibrate?.(100);
+    setFlash(true);
+    setTimeout(() => setFlash(false), 200);
+    onCapture(imageData);
+    setPhase("sent");
+  }, [capture, onCapture]);
+
+  const handleRetake = useCallback(() => {
+    setPhase("ready");
+  }, []);
 
   return (
     <div className="relative flex h-screen w-screen flex-col items-center justify-center overflow-hidden bg-black">
@@ -156,27 +127,40 @@ function CameraView({
         className="relative z-20"
         style={{ width: "72%", aspectRatio: "3/4", maxWidth: 340 }}
       >
-        <CornerBrackets isStable={isStable} />
+        <CornerBrackets isStable={phase === "ready"} />
 
-        {/* "Hold still" label */}
         <div className="absolute inset-0 flex items-center justify-center">
           <span
             className="text-sm font-semibold tracking-widest uppercase"
             style={{
-              color: isStable ? "#C9A85C" : "rgba(255,255,255,0.7)",
-              transition: "color 0.3s",
+              color: "rgba(255,255,255,0.7)",
               textShadow: "0 1px 4px rgba(0,0,0,0.8)",
             }}
           >
-            {phase === "sent" ? "Sent" : isStable ? "Capturing…" : "Hold still"}
+            {phase === "ready" ? "Align invoice" : ""}
           </span>
         </div>
       </div>
 
-      {/* Progress ring */}
-      <div className="relative z-20 mt-8">
-        <ProgressRing progress={stableProgress} isStable={isStable} />
-      </div>
+      {/* Capture button */}
+      {phase === "ready" && (
+        <div className="relative z-20 mt-8">
+          <button
+            onClick={handleCapture}
+            className="flex h-[72px] w-[72px] items-center justify-center rounded-full"
+            style={{
+              background: "linear-gradient(135deg, #C9A85C 0%, #B8923E 100%)",
+              boxShadow: "0 0 24px rgba(201, 168, 92, 0.3)",
+              border: "3px solid rgba(255,255,255,0.3)",
+            }}
+          >
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#000" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3.5" />
+              <path d="M16.5 3H7.5L6 5.5H3.5a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h17a2 2 0 0 0 2-2v-11a2 2 0 0 0-2-2H18L16.5 3z" />
+            </svg>
+          </button>
+        </div>
+      )}
 
       {/* "Sent" confirmation overlay */}
       {phase === "sent" && (
@@ -194,6 +178,17 @@ function CameraView({
           </div>
           <p className="mt-5 text-lg font-semibold" style={{ color: "#FAFAF8" }}>Image sent</p>
           <p className="mt-1 text-sm" style={{ color: "#A8A093" }}>Extension received the image</p>
+          <button
+            onClick={handleRetake}
+            className="mt-6 px-6 py-2.5 rounded-xl text-sm font-semibold"
+            style={{
+              background: "rgba(255, 255, 255, 0.08)",
+              border: "1px solid rgba(201, 168, 92, 0.3)",
+              color: "#C9A85C",
+            }}
+          >
+            Scan another
+          </button>
         </div>
       )}
     </div>
