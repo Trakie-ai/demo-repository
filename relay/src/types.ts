@@ -1,4 +1,6 @@
 import type {
+  ExtractionStartedPayload,
+  ExtractionFieldPayload,
   ExtractionCompletePayload,
   ExtractionErrorPayload,
 } from "./extraction/types.js";
@@ -17,6 +19,10 @@ export interface ServerToClientEvents {
     imageData: string;
     captureType: "invoice";
   }) => void;
+  /** Extraction has started */
+  "extraction:started": (data: ExtractionStartedPayload) => void;
+  /** A single field has been parsed from the stream */
+  "extraction:field": (data: ExtractionFieldPayload) => void;
   /** Extraction completed successfully */
   "extraction:complete": (data: ExtractionCompletePayload) => void;
   /** Extraction failed */

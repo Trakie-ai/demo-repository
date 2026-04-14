@@ -3,8 +3,10 @@ export type {
   ExtractedField,
   ExtractionResult,
   ExtractionResponse,
+  ExtractionStartedPayload,
+  ExtractionFieldPayload,
   ExtractionCompletePayload,
   ExtractionErrorPayload,
 } from "./types.js";
 
-export { extractInvoiceData } from "./service.js";
+export { extractInvoiceDataStreaming, type StreamCallbacks } from "./service.js";

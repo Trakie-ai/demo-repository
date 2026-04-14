@@ -42,6 +42,21 @@ export interface ExtractionResponse {
   notes: string | null;
 }
 
+/** Socket.IO payload emitted when extraction begins */
+export interface ExtractionStartedPayload {
+  sessionId: string;
+  startedAt: string;
+}
+
+/** Socket.IO payload emitted for each field as it is parsed from the stream */
+export interface ExtractionFieldPayload {
+  sessionId: string;
+  lineItemIndex: number;
+  fieldName: keyof ExtractionResult;
+  value: string | number | null;
+  confidence: Confidence;
+}
+
 /** Socket.IO payload for successful extraction */
 export interface ExtractionCompletePayload {
   sessionId: string;

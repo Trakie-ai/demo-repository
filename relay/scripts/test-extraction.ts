@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { readFileSync } from "fs";
 import { resolve } from "path";
-import { extractInvoiceData } from "../src/extraction/index.js";
+import { extractInvoiceDataStreaming } from "../src/extraction/index.js";
 
 const filePath = process.argv[2];
 
@@ -25,26 +25,24 @@ console.log("---");
 
 const start = Date.now();
 
-extractInvoiceData(base64)
+function flag(confidence: string): string {
+  return confidence === "green" ? "G" : confidence === "yellow" ? "Y" : "R";
+}
+
+extractInvoiceDataStreaming(base64, {
+  onField: (field) => {
+    const elapsed = ((Date.now() - start) / 1000).toFixed(1);
+    console.log(
+      `[${elapsed}s] [${flag(field.confidence)}] line ${field.lineItemIndex} · ${field.fieldName}: ${field.value ?? "(null)"}`
+    );
+  },
+})
   .then((result) => {
     const elapsed = ((Date.now() - start) / 1000).toFixed(1);
-    console.log(`Extraction completed in ${elapsed}s\n`);
-
+    console.log(`\n--- Stream complete in ${elapsed}s ---`);
     console.log(`Line items: ${result.lineItems.length}`);
     if (result.notes) {
       console.log(`Notes: ${result.notes}`);
-    }
-    console.log("");
-
-    for (const [i, item] of result.lineItems.entries()) {
-      console.log(`--- Line Item ${i + 1} ---`);
-      for (const [key, field] of Object.entries(item)) {
-        const { value, confidence } = field as { value: unknown; confidence: string };
-        const flag =
-          confidence === "green" ? "G" : confidence === "yellow" ? "Y" : "R";
-        console.log(`  [${flag}] ${key}: ${value ?? "(null)"}`);
-      }
-      console.log("");
     }
   })
   .catch((err) => {
