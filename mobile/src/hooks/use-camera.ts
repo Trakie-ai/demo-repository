@@ -1,21 +1,21 @@
 "use client";
 
 import { useEffect, useRef, useCallback } from "react";
-import { compressFrame } from "@/lib/image-utils";
+import { compressFrame, type CropRect } from "@/lib/image-utils";
 
 export interface UseCameraResult {
   videoRef: React.RefObject<HTMLVideoElement | null>;
-  capture: () => string;
+  capture: (cropRect?: CropRect) => string;
 }
 
 export function useCamera(): UseCameraResult {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
-  const capture = useCallback((): string => {
+  const capture = useCallback((cropRect?: CropRect): string => {
     const video = videoRef.current;
     if (!video) return "";
-    return compressFrame(video);
+    return compressFrame(video, cropRect);
   }, []);
 
   useEffect(() => {

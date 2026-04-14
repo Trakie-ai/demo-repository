@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { QrScanner } from "@/components/qr-scanner";
 import { useRelay, type RelayStatus } from "@/hooks/use-relay";
@@ -92,6 +92,7 @@ function CameraView({
 }) {
   const [localPhase, setLocalPhase] = useState<CapturePhase>("ready");
   const [flash, setFlash] = useState(false);
+  const guideRef = useRef<HTMLDivElement>(null);
 
   const { videoRef, capture } = useCamera();
 
@@ -106,14 +107,27 @@ function CameraView({
       : "processing";
 
   const handleCapture = useCallback(() => {
-    const imageData = capture();
+    const video = videoRef.current;
+    const guide = guideRef.current;
+    let cropRect: { x: number; y: number; width: number; height: number } | undefined;
+    if (video && guide) {
+      const vr = video.getBoundingClientRect();
+      const gr = guide.getBoundingClientRect();
+      cropRect = {
+        x: gr.left - vr.left,
+        y: gr.top - vr.top,
+        width: gr.width,
+        height: gr.height,
+      };
+    }
+    const imageData = capture(cropRect);
     if (!imageData) return;
     navigator.vibrate?.(100);
     setFlash(true);
     setTimeout(() => setFlash(false), 200);
     onCapture(imageData);
     setLocalPhase("processing");
-  }, [capture, onCapture]);
+  }, [capture, onCapture, videoRef]);
 
   const handleRetake = useCallback(() => {
     onRetake();
@@ -141,8 +155,9 @@ function CameraView({
 
       {/* Corner-bracket guide box */}
       <div
+        ref={guideRef}
         className="relative z-20"
-        style={{ width: "72%", aspectRatio: "3/4", maxWidth: 340 }}
+        style={{ width: "88%", aspectRatio: "3/4", maxWidth: 420 }}
       >
         <CornerBrackets isStable={phase === "ready"} />
 
