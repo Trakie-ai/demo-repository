@@ -12,8 +12,12 @@ export type RelayStatus =
   | "disconnected"
   | "error";
 
+export type ExtractionPhase = "idle" | "processing" | "complete" | "error";
+
 export function useRelay(sessionId: string | null) {
   const [status, setStatus] = useState<RelayStatus>("idle");
+  const [extractionPhase, setExtractionPhase] = useState<ExtractionPhase>("idle");
+  const [extractionError, setExtractionError] = useState<string | null>(null);
   const socketRef = useRef<Socket | null>(null);
 
   const disconnect = useCallback(() => {
@@ -62,6 +66,20 @@ export function useRelay(sessionId: string | null) {
       setStatus("joined");
     });
 
+    socket.on("extraction:started", () => {
+      setExtractionError(null);
+      setExtractionPhase("processing");
+    });
+
+    socket.on("extraction:complete", () => {
+      setExtractionPhase("complete");
+    });
+
+    socket.on("extraction:error", (data: { error: string }) => {
+      setExtractionError(data?.error ?? "Extraction failed");
+      setExtractionPhase("error");
+    });
+
     socket.on("disconnect", () => {
       setStatus("disconnected");
     });
@@ -80,6 +98,8 @@ export function useRelay(sessionId: string | null) {
     (imageData: string) => {
       const socket = socketRef.current;
       if (!socket || !sessionId) return;
+      setExtractionError(null);
+      setExtractionPhase("processing");
       socket.emit("image:captured", {
         sessionId,
         imageData,
@@ -89,5 +109,17 @@ export function useRelay(sessionId: string | null) {
     [sessionId]
   );
 
-  return { status, disconnect, sendImage };
+  const resetExtraction = useCallback(() => {
+    setExtractionError(null);
+    setExtractionPhase("idle");
+  }, []);
+
+  return {
+    status,
+    disconnect,
+    sendImage,
+    extractionPhase,
+    extractionError,
+    resetExtraction,
+  };
 }

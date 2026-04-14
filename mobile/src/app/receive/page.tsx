@@ -77,17 +77,33 @@ function CornerBrackets({ isStable }: { isStable: boolean }) {
 
 // ─── Camera view ──────────────────────────────────────────────────────────
 
-type CapturePhase = "ready" | "sent";
+type CapturePhase = "ready" | "processing" | "complete" | "error";
 
 function CameraView({
   onCapture,
+  extractionPhase,
+  extractionError,
+  onRetake,
 }: {
   onCapture: (imageData: string) => void;
+  extractionPhase: "idle" | "processing" | "complete" | "error";
+  extractionError: string | null;
+  onRetake: () => void;
 }) {
-  const [phase, setPhase] = useState<CapturePhase>("ready");
+  const [localPhase, setLocalPhase] = useState<CapturePhase>("ready");
   const [flash, setFlash] = useState(false);
 
   const { videoRef, capture } = useCamera();
+
+  // Drive UI phase from extractionPhase once capture has been sent
+  const phase: CapturePhase =
+    localPhase === "ready"
+      ? "ready"
+      : extractionPhase === "complete"
+      ? "complete"
+      : extractionPhase === "error"
+      ? "error"
+      : "processing";
 
   const handleCapture = useCallback(() => {
     const imageData = capture();
@@ -96,12 +112,13 @@ function CameraView({
     setFlash(true);
     setTimeout(() => setFlash(false), 200);
     onCapture(imageData);
-    setPhase("sent");
+    setLocalPhase("processing");
   }, [capture, onCapture]);
 
   const handleRetake = useCallback(() => {
-    setPhase("ready");
-  }, []);
+    onRetake();
+    setLocalPhase("ready");
+  }, [onRetake]);
 
   return (
     <div className="relative flex h-screen w-screen flex-col items-center justify-center overflow-hidden bg-black">
@@ -162,8 +179,37 @@ function CameraView({
         </div>
       )}
 
-      {/* "Sent" confirmation overlay */}
-      {phase === "sent" && (
+      {/* Processing overlay — spinner while Claude Vision extracts */}
+      {phase === "processing" && (
+        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/75">
+          <div
+            className="flex h-20 w-20 items-center justify-center rounded-full"
+            style={{
+              background: "rgba(201, 168, 92, 0.12)",
+              border: "2px solid rgba(201, 168, 92, 0.3)",
+            }}
+          >
+            <div
+              className="h-10 w-10 rounded-full"
+              style={{
+                border: "3px solid rgba(201, 168, 92, 0.2)",
+                borderTopColor: "#C9A85C",
+                animation: "trakie-spin 0.9s linear infinite",
+              }}
+            />
+          </div>
+          <p className="mt-5 text-lg font-semibold" style={{ color: "#FAFAF8" }}>
+            Analyzing invoice…
+          </p>
+          <p className="mt-1 text-sm" style={{ color: "#A8A093" }}>
+            Claude Vision is reading the fields
+          </p>
+          <style>{`@keyframes trakie-spin { to { transform: rotate(360deg); } }`}</style>
+        </div>
+      )}
+
+      {/* Complete overlay */}
+      {phase === "complete" && (
         <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/70">
           <div
             className="flex h-20 w-20 items-center justify-center rounded-full"
@@ -176,8 +222,8 @@ function CameraView({
               <polyline points="20 6 9 17 4 12" />
             </svg>
           </div>
-          <p className="mt-5 text-lg font-semibold" style={{ color: "#FAFAF8" }}>Image sent</p>
-          <p className="mt-1 text-sm" style={{ color: "#A8A093" }}>Extension received the image</p>
+          <p className="mt-5 text-lg font-semibold" style={{ color: "#FAFAF8" }}>Invoice captured</p>
+          <p className="mt-1 text-sm" style={{ color: "#A8A093" }}>Details sent to Trakie</p>
           <button
             onClick={handleRetake}
             className="mt-6 px-6 py-2.5 rounded-xl text-sm font-semibold"
@@ -188,6 +234,39 @@ function CameraView({
             }}
           >
             Scan another
+          </button>
+        </div>
+      )}
+
+      {/* Error overlay */}
+      {phase === "error" && (
+        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/80 px-8">
+          <div
+            className="flex h-20 w-20 items-center justify-center rounded-full"
+            style={{
+              background: "rgba(239, 68, 68, 0.15)",
+              border: "2px solid rgba(239, 68, 68, 0.4)",
+            }}
+          >
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </div>
+          <p className="mt-5 text-lg font-semibold" style={{ color: "#FAFAF8" }}>Extraction failed</p>
+          <p className="mt-1 text-sm text-center" style={{ color: "#A8A093" }}>
+            {extractionError ?? "Something went wrong. Please try again."}
+          </p>
+          <button
+            onClick={handleRetake}
+            className="mt-6 px-6 py-2.5 rounded-xl text-sm font-semibold"
+            style={{
+              background: "rgba(255, 255, 255, 0.08)",
+              border: "1px solid rgba(201, 168, 92, 0.3)",
+              color: "#C9A85C",
+            }}
+          >
+            Try again
           </button>
         </div>
       )}
@@ -204,7 +283,8 @@ function ReceiveContent() {
   const [sessionId, setSessionId] = useState<string | null>(urlSession);
   const [appState, setAppState] = useState<"connecting" | "capturing">("connecting");
 
-  const { status, sendImage } = useRelay(sessionId);
+  const { status, sendImage, extractionPhase, extractionError, resetExtraction } =
+    useRelay(sessionId);
 
   // Auto-transition to capturing once paired
   useEffect(() => {
@@ -232,7 +312,14 @@ function ReceiveContent() {
 
   // ── Camera view (after paired) ──
   if (appState === "capturing") {
-    return <CameraView onCapture={handleCapture} />;
+    return (
+      <CameraView
+        onCapture={handleCapture}
+        extractionPhase={extractionPhase}
+        extractionError={extractionError}
+        onRetake={resetExtraction}
+      />
+    );
   }
 
   // ── Connection / QR-scan view ──
