@@ -88,32 +88,43 @@ export async function extractInvoiceDataStreaming(
 
   const seen = new Set<string>();
 
+  // Any error on the stream surfaces via finalMessage() rejecting — but we
+  // also attach an error listener so Node doesn't kill the process if the
+  // SDK emits an "error" event before anyone awaits the promise.
+  stream.on("error", (err) => {
+    console.error("[extraction] stream error event:", err);
+  });
+
   stream.on("inputJson", (_partialJson, snapshot) => {
-    if (!callbacks.onField) return;
-    if (!snapshot || typeof snapshot !== "object") return;
-    const s = snapshot as { lineItems?: unknown };
-    if (!Array.isArray(s.lineItems)) return;
+    try {
+      if (!callbacks.onField) return;
+      if (!snapshot || typeof snapshot !== "object") return;
+      const s = snapshot as { lineItems?: unknown };
+      if (!Array.isArray(s.lineItems)) return;
 
-    for (let i = 0; i < s.lineItems.length; i++) {
-      const item = s.lineItems[i];
-      if (!item || typeof item !== "object") continue;
-      const fields = item as Record<string, unknown>;
+      for (let i = 0; i < s.lineItems.length; i++) {
+        const item = s.lineItems[i];
+        if (!item || typeof item !== "object") continue;
+        const fields = item as Record<string, unknown>;
 
-      for (const key of Object.keys(fields)) {
-        const field = fields[key];
-        if (!isCompleteField(field)) continue;
+        for (const key of Object.keys(fields)) {
+          const field = fields[key];
+          if (!isCompleteField(field)) continue;
 
-        const marker = `${i}.${key}`;
-        if (seen.has(marker)) continue;
-        seen.add(marker);
+          const marker = `${i}.${key}`;
+          if (seen.has(marker)) continue;
+          seen.add(marker);
 
-        callbacks.onField({
-          lineItemIndex: i,
-          fieldName: key as keyof ExtractionResult,
-          value: field.value,
-          confidence: field.confidence,
-        });
+          callbacks.onField({
+            lineItemIndex: i,
+            fieldName: key as keyof ExtractionResult,
+            value: field.value,
+            confidence: field.confidence,
+          });
+        }
       }
+    } catch (err) {
+      console.error("[extraction] inputJson handler threw:", err);
     }
   });
 

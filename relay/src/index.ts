@@ -150,6 +150,16 @@ if (!process.env.ANTHROPIC_API_KEY) {
   );
 }
 
+// Safety nets: never let the relay crash because of an unexpected error
+// from the Anthropic SDK, Socket.IO, or anywhere else.
+process.on("uncaughtException", (err) => {
+  console.error("[relay] uncaughtException:", err);
+});
+
+process.on("unhandledRejection", (reason) => {
+  console.error("[relay] unhandledRejection:", reason);
+});
+
 httpServer.listen(PORT, () => {
   console.log(`[relay] server listening on http://localhost:${PORT}`);
 });
