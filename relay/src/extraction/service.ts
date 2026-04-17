@@ -62,8 +62,20 @@ export async function extractInvoiceDataStreaming(
   const stream = anthropic.messages.stream({
     model: "claude-sonnet-4-20250514",
     max_tokens: 4096,
-    system: SYSTEM_PROMPT,
-    tools: [EXTRACT_TOOL],
+    system: [
+      {
+        type: "text",
+        text: SYSTEM_PROMPT,
+      },
+    ],
+    tools: [
+      {
+        ...EXTRACT_TOOL,
+        // Cache the tool schema (and everything before it: system prompt).
+        // Subsequent extractions within ~5 minutes skip prefill for these blocks.
+        cache_control: { type: "ephemeral" },
+      },
+    ],
     tool_choice: { type: "tool", name: "extract_invoice_data" },
     messages: [
       {
@@ -129,6 +141,16 @@ export async function extractInvoiceDataStreaming(
   });
 
   const finalMessage = await stream.finalMessage();
+
+  const usage = finalMessage.usage as {
+    input_tokens: number;
+    output_tokens: number;
+    cache_creation_input_tokens?: number;
+    cache_read_input_tokens?: number;
+  };
+  console.log(
+    `[extraction] usage — input=${usage.input_tokens} output=${usage.output_tokens} cache_write=${usage.cache_creation_input_tokens ?? 0} cache_read=${usage.cache_read_input_tokens ?? 0}`
+  );
 
   const toolBlock = finalMessage.content.find(
     (block) => block.type === "tool_use"
