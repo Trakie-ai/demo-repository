@@ -516,18 +516,22 @@ function CompletionScreen({
         }}
       >
         <div className="flex items-center justify-between">
-          <h1
-            className="text-lg font-bold"
-            style={{
-              fontFamily: "var(--font-display)",
-              background: "linear-gradient(135deg, #C9A85C 0%, #B8923E 100%)",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-              backgroundClip: "text",
-            }}
-          >
-            Trakie
-          </h1>
+          <div className="inline-flex flex-col items-center gap-1">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.png" alt="Trakie" className="h-7 w-7 object-contain" />
+            <h1
+              className="text-lg font-bold leading-none"
+              style={{
+                fontFamily: "var(--font-display)",
+                background: "linear-gradient(135deg, #C9A85C 0%, #B8923E 100%)",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+                backgroundClip: "text",
+              }}
+            >
+              Trakie
+            </h1>
+          </div>
           <span className="text-xs uppercase tracking-wider" style={{ color: "#A8A093", letterSpacing: "1px" }}>
             Session Complete
           </span>
@@ -1032,18 +1036,22 @@ function ReceiveContent() {
           WebkitBackdropFilter: "blur(10px)",
         }}
       >
-        <h1
-          className="text-xl font-bold"
-          style={{
-            fontFamily: "var(--font-display)",
-            background: "linear-gradient(135deg, #C9A85C 0%, #B8923E 100%)",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-            backgroundClip: "text",
-          }}
-        >
-          Trakie
-        </h1>
+        <div className="inline-flex flex-col items-center gap-1">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="Trakie" className="h-8 w-8 object-contain" />
+          <h1
+            className="text-xl font-bold leading-none"
+            style={{
+              fontFamily: "var(--font-display)",
+              background: "linear-gradient(135deg, #C9A85C 0%, #B8923E 100%)",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              backgroundClip: "text",
+            }}
+          >
+            Trakie
+          </h1>
+        </div>
         <span className="text-sm tracking-wide uppercase" style={{ color: "#A8A093", letterSpacing: "1px", fontSize: "11px" }}>
           Inventory Receiving
         </span>
