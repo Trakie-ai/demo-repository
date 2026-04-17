@@ -976,10 +976,8 @@ function ReceiveContent() {
   );
 
   const handleClose = useCallback(() => {
-    setCaptureRecords([]);
-    setLabelCount(0);
-    setSessionId(null);
-    setAppState("connecting");
+    // Full reload to drop the ?session= param and reset the camera/socket cleanly.
+    window.location.assign("/receive");
   }, []);
 
   // ── Invoice capture ──

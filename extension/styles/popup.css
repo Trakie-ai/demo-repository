@@ -202,6 +202,10 @@ body {
   color: #ef4444;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 .session-banner {
   display: flex;
   align-items: center;
