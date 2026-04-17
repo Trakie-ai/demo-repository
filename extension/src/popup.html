@@ -8,30 +8,34 @@
 </head>
 <body>
   <div class="container">
-    <header class="header">
-      <h1 class="logo">trakie.ai</h1>
-      <p class="tagline">Inventory Receiving Assistant</p>
+    <header class="topbar">
+      <div class="brand">
+        <img class="brand-icon" src="../icons/logo.png" alt="Trakie logo" />
+        <span class="brand-wordmark">trakie.ai</span>
+      </div>
+      <div id="status-pill" class="status-pill" data-status="connecting">
+        <span class="status-dot"></span>
+        <span class="status-text">Connecting…</span>
+      </div>
     </header>
 
     <main class="content">
-      <div id="qr-container" class="qr-container">
-        <p class="qr-placeholder">QR code will appear here</p>
-      </div>
-
-      <div id="status" class="status">
-        <span class="status-dot"></span>
-        <span class="status-text">Disconnected</span>
-      </div>
-
-      <section id="extraction-panel" class="extraction-panel" hidden>
-        <header class="extraction-header">
-          <h2 class="extraction-title">Extraction</h2>
-        </header>
-        <div id="session-banner" class="session-banner" hidden>
-          <span class="session-banner-check">✓</span>
-          <span id="session-banner-text" class="session-banner-text">Session complete</span>
+      <!-- Connecting view: QR code + hint -->
+      <section id="connecting-view" class="connecting-view">
+        <div id="qr-container" class="qr-container">
+          <p class="qr-placeholder">QR code will appear here</p>
         </div>
-        <ol id="line-items" class="line-items"></ol>
+        <p class="qr-hint">Scan this QR from your phone to start a session</p>
+      </section>
+
+      <!-- Live view: extraction panel -->
+      <section id="live-view" class="live-view" hidden>
+        <div id="status-badge" class="status-badge" data-mode="waiting">
+          <span id="status-badge-label" class="status-badge-label">WAITING FOR CAPTURE</span>
+          <span id="status-badge-count" class="status-badge-count"></span>
+        </div>
+
+        <ol id="capture-list" class="capture-list"></ol>
       </section>
     </main>
   </div>
