@@ -95,7 +95,7 @@ export function useRelay(sessionId: string | null) {
   }, [sessionId]);
 
   const sendImage = useCallback(
-    (imageData: string) => {
+    (imageData: string, captureType: "invoice" | "label" = "invoice") => {
       const socket = socketRef.current;
       if (!socket || !sessionId) return;
       setExtractionError(null);
@@ -103,7 +103,7 @@ export function useRelay(sessionId: string | null) {
       socket.emit("image:captured", {
         sessionId,
         imageData,
-        captureType: "invoice" as const,
+        captureType,
       });
     },
     [sessionId]

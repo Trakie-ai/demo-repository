@@ -80,21 +80,34 @@ function CornerBrackets({ isStable }: { isStable: boolean }) {
 type CapturePhase = "ready" | "processing" | "complete" | "error";
 
 function CameraView({
+  mode,
+  labelIndex,
   onCapture,
   extractionPhase,
   extractionError,
   onRetake,
+  onDone,
 }: {
+  mode: "invoice" | "label";
+  labelIndex?: number;
   onCapture: (imageData: string) => void;
   extractionPhase: "idle" | "processing" | "complete" | "error";
   extractionError: string | null;
   onRetake: () => void;
+  onDone?: () => void;
 }) {
   const [localPhase, setLocalPhase] = useState<CapturePhase>("ready");
   const [flash, setFlash] = useState(false);
   const guideRef = useRef<HTMLDivElement>(null);
 
   const { videoRef, capture } = useCamera();
+
+  // Re-arm local phase when parent clears extraction back to idle
+  useEffect(() => {
+    if (extractionPhase === "idle") {
+      setLocalPhase("ready");
+    }
+  }, [extractionPhase]);
 
   // Drive UI phase from extractionPhase once capture has been sent
   const phase: CapturePhase =
@@ -169,10 +182,28 @@ function CameraView({
               textShadow: "0 1px 4px rgba(0,0,0,0.8)",
             }}
           >
-            {phase === "ready" ? "Align invoice" : ""}
+            {phase === "ready" ? (mode === "invoice" ? "Align invoice" : "Align product label") : ""}
           </span>
         </div>
       </div>
+
+      {/* Label counter badge — label mode only */}
+      {mode === "label" && phase === "ready" && (
+        <div
+          className="absolute left-5 top-5 z-20 flex items-center gap-2 rounded-xl px-3 py-2"
+          style={{
+            background: "rgba(7, 7, 9, 0.7)",
+            border: "1px solid rgba(201, 168, 92, 0.3)",
+            backdropFilter: "blur(8px)",
+            WebkitBackdropFilter: "blur(8px)",
+          }}
+        >
+          <span className="h-2 w-2 rounded-full" style={{ background: "#C9A85C" }} />
+          <span className="text-sm font-semibold" style={{ color: "#FAFAF8" }}>
+            Label {labelIndex ?? 1}
+          </span>
+        </div>
+      )}
 
       {/* Capture button */}
       {phase === "ready" && (
@@ -192,6 +223,21 @@ function CameraView({
             </svg>
           </button>
         </div>
+      )}
+
+      {/* Done button — label mode only, always visible when ready */}
+      {mode === "label" && phase === "ready" && onDone && (
+        <button
+          onClick={onDone}
+          className="relative z-20 mt-5 rounded-xl px-6 py-2.5 text-sm font-semibold"
+          style={{
+            background: "rgba(255, 255, 255, 0.08)",
+            border: "1px solid rgba(201, 168, 92, 0.3)",
+            color: "#C9A85C",
+          }}
+        >
+          Done
+        </button>
       )}
 
       {/* Processing overlay — spinner while Claude Vision extracts */}
@@ -214,7 +260,7 @@ function CameraView({
             />
           </div>
           <p className="mt-5 text-lg font-semibold" style={{ color: "#FAFAF8" }}>
-            Analyzing invoice…
+            {mode === "invoice" ? "Analyzing invoice…" : `Reading label ${labelIndex ?? 1}…`}
           </p>
           <p className="mt-1 text-sm" style={{ color: "#A8A093" }}>
             Claude Vision is reading the fields
@@ -237,19 +283,12 @@ function CameraView({
               <polyline points="20 6 9 17 4 12" />
             </svg>
           </div>
-          <p className="mt-5 text-lg font-semibold" style={{ color: "#FAFAF8" }}>Invoice captured</p>
-          <p className="mt-1 text-sm" style={{ color: "#A8A093" }}>Details sent to Trakie</p>
-          <button
-            onClick={handleRetake}
-            className="mt-6 px-6 py-2.5 rounded-xl text-sm font-semibold"
-            style={{
-              background: "rgba(255, 255, 255, 0.08)",
-              border: "1px solid rgba(201, 168, 92, 0.3)",
-              color: "#C9A85C",
-            }}
-          >
-            Scan another
-          </button>
+          <p className="mt-5 text-lg font-semibold" style={{ color: "#FAFAF8" }}>
+            {mode === "invoice" ? "Invoice captured" : `Label ${labelIndex ?? 1} captured`}
+          </p>
+          <p className="mt-1 text-sm" style={{ color: "#A8A093" }}>
+            {mode === "invoice" ? "Moving to product labels…" : "Ready for the next one…"}
+          </p>
         </div>
       )}
 
@@ -296,17 +335,46 @@ function ReceiveContent() {
   const urlSession = searchParams.get("session");
 
   const [sessionId, setSessionId] = useState<string | null>(urlSession);
-  const [appState, setAppState] = useState<"connecting" | "capturing">("connecting");
+  const [appState, setAppState] = useState<
+    "connecting" | "capturing-invoice" | "capturing-labels" | "done"
+  >("connecting");
+  const [labelCount, setLabelCount] = useState(0);
 
-  const { status, sendImage, extractionPhase, extractionError, resetExtraction } =
+  const { status, disconnect, sendImage, extractionPhase, extractionError, resetExtraction } =
     useRelay(sessionId);
 
-  // Auto-transition to capturing once paired
+  // Auto-transition to invoice capture once paired
   useEffect(() => {
     if (status === "paired" && appState === "connecting") {
-      setAppState("capturing");
+      setAppState("capturing-invoice");
     }
   }, [status, appState]);
+
+  // Auto-advance on extraction:complete
+  useEffect(() => {
+    if (extractionPhase !== "complete") return;
+
+    if (appState === "capturing-invoice") {
+      const t = setTimeout(() => {
+        resetExtraction();
+        setAppState("capturing-labels");
+      }, 1200);
+      return () => clearTimeout(t);
+    }
+
+    if (appState === "capturing-labels") {
+      const t = setTimeout(() => {
+        setLabelCount((n) => n + 1);
+        resetExtraction();
+      }, 1000);
+      return () => clearTimeout(t);
+    }
+  }, [extractionPhase, appState, resetExtraction]);
+
+  const handleDone = useCallback(() => {
+    setAppState("done");
+    disconnect();
+  }, [disconnect]);
 
   const handleScan = useCallback((decodedText: string) => {
     try {
@@ -318,22 +386,70 @@ function ReceiveContent() {
     }
   }, []);
 
-  const handleCapture = useCallback(
+  const handleCaptureInvoice = useCallback(
     (imageData: string) => {
-      sendImage(imageData);
+      sendImage(imageData, "invoice");
     },
     [sendImage]
   );
 
-  // ── Camera view (after paired) ──
-  if (appState === "capturing") {
+  const handleCaptureLabel = useCallback(
+    (imageData: string) => {
+      sendImage(imageData, "label");
+    },
+    [sendImage]
+  );
+
+  // ── Invoice capture ──
+  if (appState === "capturing-invoice") {
     return (
       <CameraView
-        onCapture={handleCapture}
+        mode="invoice"
+        onCapture={handleCaptureInvoice}
         extractionPhase={extractionPhase}
         extractionError={extractionError}
         onRetake={resetExtraction}
       />
+    );
+  }
+
+  // ── Label capture (multi-shot) ──
+  if (appState === "capturing-labels") {
+    return (
+      <CameraView
+        mode="label"
+        labelIndex={labelCount + 1}
+        onCapture={handleCaptureLabel}
+        extractionPhase={extractionPhase}
+        extractionError={extractionError}
+        onRetake={resetExtraction}
+        onDone={handleDone}
+      />
+    );
+  }
+
+  // ── Session complete ──
+  if (appState === "done") {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-5 bg-background text-foreground p-6">
+        <div
+          className="flex h-20 w-20 items-center justify-center rounded-2xl"
+          style={{
+            background: "linear-gradient(135deg, #C9A85C 0%, #B8923E 100%)",
+            boxShadow: "0 0 40px rgba(201, 168, 92, 0.4)",
+          }}
+        >
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#000" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        </div>
+        <h2 className="text-xl font-semibold" style={{ color: "#FAFAF8" }}>
+          Session complete
+        </h2>
+        <p className="text-sm text-center" style={{ color: "#A8A093" }}>
+          Invoice + {labelCount} {labelCount === 1 ? "label" : "labels"} sent to Trakie
+        </p>
+      </div>
     );
   }
 

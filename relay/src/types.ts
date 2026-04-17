@@ -17,7 +17,7 @@ export interface ServerToClientEvents {
   "image:captured": (data: {
     sessionId: string;
     imageData: string;
-    captureType: "invoice";
+    captureType: "invoice" | "label";
   }) => void;
   /** Extraction has started */
   "extraction:started": (data: ExtractionStartedPayload) => void;
@@ -42,7 +42,7 @@ export interface ClientToServerEvents {
   "image:captured": (data: {
     sessionId: string;
     imageData: string;
-    captureType: "invoice";
+    captureType: "invoice" | "label";
   }) => void;
 }
 
