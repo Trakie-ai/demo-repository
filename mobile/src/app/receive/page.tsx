@@ -5,6 +5,12 @@ import { useSearchParams } from "next/navigation";
 import { QrScanner } from "@/components/qr-scanner";
 import { useRelay, type RelayStatus } from "@/hooks/use-relay";
 import { useCamera } from "@/hooks/use-camera";
+import type {
+  Confidence,
+  ExtractedField,
+  ExtractionResponse,
+  ExtractionResult,
+} from "@/types/extraction";
 
 // ─── Status label config (non-capturing states) ────────────────────────────
 
@@ -328,6 +334,505 @@ function CameraView({
   );
 }
 
+// ─── Capture record model & helpers ───────────────────────────────────────
+
+type CaptureRecord = {
+  id: string;
+  captureType: "invoice" | "label";
+  labelIndex?: number;
+  imageData: string;
+  extraction: ExtractionResponse | null;
+  error: string | null;
+};
+
+const CONFIDENCE_COLOR: Record<Confidence, string> = {
+  green: "#10b981",
+  yellow: "#f59e0b",
+  red: "#ef4444",
+};
+
+const FIELD_LABELS: Record<keyof ExtractionResult, string> = {
+  productName: "Product",
+  brand: "Brand",
+  category: "Category",
+  subcategory: "Subcategory",
+  thc: "THC",
+  cbd: "CBD",
+  netWeightOrUnitCount: "Net weight / units",
+  batchLotNumber: "Batch / lot",
+  expirationDate: "Expiration",
+  packageIdMetrcTag: "METRC tag",
+  wholesaleCostPerUnit: "Wholesale",
+  retailPrice: "Retail",
+  ingredients: "Ingredients",
+  allergens: "Allergens",
+  vendorName: "Vendor",
+  quantityReceived: "Qty received",
+};
+
+const INVOICE_LINEITEM_KEY_FIELDS: Array<keyof ExtractionResult> = [
+  "productName",
+  "quantityReceived",
+  "wholesaleCostPerUnit",
+  "retailPrice",
+];
+
+function formatFieldValue(
+  key: keyof ExtractionResult,
+  field: ExtractedField<string | number> | undefined
+): string | null {
+  if (!field || field.value === null || field.value === undefined) return null;
+  if (key === "wholesaleCostPerUnit" || key === "retailPrice") {
+    return typeof field.value === "number" ? `$${field.value.toFixed(2)}` : String(field.value);
+  }
+  return String(field.value);
+}
+
+function ConfidenceDot({ confidence }: { confidence: Confidence }) {
+  return (
+    <span
+      className="inline-block rounded-full"
+      style={{
+        width: 6,
+        height: 6,
+        background: CONFIDENCE_COLOR[confidence],
+      }}
+    />
+  );
+}
+
+function FieldRow({
+  label,
+  value,
+  confidence,
+}: {
+  label: string;
+  value: string;
+  confidence: Confidence;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-3 py-1.5">
+      <span className="text-xs uppercase tracking-wide" style={{ color: "#A8A093", letterSpacing: "0.5px" }}>
+        {label}
+      </span>
+      <span className="flex items-center gap-2 text-sm text-right" style={{ color: "#FAFAF8" }}>
+        <ConfidenceDot confidence={confidence} />
+        <span className="font-medium">{value}</span>
+      </span>
+    </div>
+  );
+}
+
+function buildSummaryText(records: CaptureRecord[]): string {
+  const today = new Date().toISOString().slice(0, 10);
+  const lines: string[] = [`Trakie session — ${today}`, ""];
+
+  const invoice = records.find((r) => r.captureType === "invoice");
+  const labels = records.filter((r) => r.captureType === "label");
+
+  if (invoice) {
+    lines.push("INVOICE");
+    if (invoice.error) {
+      lines.push(`  Extraction failed — ${invoice.error}`);
+    } else if (invoice.extraction) {
+      const items = invoice.extraction.lineItems ?? [];
+      const vendor = items[0]?.vendorName?.value ?? null;
+      if (vendor) lines.push(`  Vendor: ${vendor}`);
+      lines.push(`  Line items (${items.length}):`);
+      items.forEach((item, i) => {
+        const parts: string[] = [];
+        const name = formatFieldValue("productName", item.productName);
+        if (name) parts.push(name);
+        const qty = formatFieldValue("quantityReceived", item.quantityReceived);
+        if (qty) parts.push(`qty ${qty}`);
+        const wholesale = formatFieldValue("wholesaleCostPerUnit", item.wholesaleCostPerUnit);
+        if (wholesale) parts.push(`wholesale ${wholesale}`);
+        const retail = formatFieldValue("retailPrice", item.retailPrice);
+        if (retail) parts.push(`retail ${retail}`);
+        lines.push(`    ${i + 1}. ${parts.join(" — ") || "(no data)"}`);
+      });
+    } else {
+      lines.push("  (no extraction)");
+    }
+    lines.push("");
+  }
+
+  labels.forEach((record) => {
+    lines.push(`LABEL ${record.labelIndex ?? "?"}`);
+    if (record.error) {
+      lines.push(`  Extraction failed — ${record.error}`);
+    } else if (record.extraction && record.extraction.lineItems[0]) {
+      const item = record.extraction.lineItems[0];
+      (Object.keys(FIELD_LABELS) as Array<keyof ExtractionResult>).forEach((key) => {
+        const val = formatFieldValue(key, item[key] as ExtractedField<string | number>);
+        if (val) lines.push(`  ${FIELD_LABELS[key]}: ${val}`);
+      });
+    } else {
+      lines.push("  (no extraction)");
+    }
+    lines.push("");
+  });
+
+  return lines.join("\n").trimEnd();
+}
+
+// ─── Completion screen ────────────────────────────────────────────────────
+
+function CompletionScreen({
+  records,
+  onClose,
+}: {
+  records: CaptureRecord[];
+  onClose: () => void;
+}) {
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const invoice = records.find((r) => r.captureType === "invoice");
+  const labels = records.filter((r) => r.captureType === "label");
+
+  const handleCopy = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(buildSummaryText(records));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard may be unavailable (insecure context etc.) — silently skip.
+    }
+  }, [records]);
+
+  const toggle = (id: string) => setExpandedId((cur) => (cur === id ? null : id));
+
+  return (
+    <div className="flex min-h-screen flex-col bg-background text-foreground">
+      {/* Sticky header */}
+      <header
+        className="sticky top-0 z-20 flex flex-col gap-1 px-5 py-4"
+        style={{
+          background: "rgba(7, 7, 9, 0.85)",
+          borderBottom: "1px solid rgba(201, 168, 92, 0.2)",
+          backdropFilter: "blur(10px)",
+          WebkitBackdropFilter: "blur(10px)",
+        }}
+      >
+        <div className="flex items-center justify-between">
+          <h1
+            className="text-lg font-bold"
+            style={{
+              fontFamily: "var(--font-display)",
+              background: "linear-gradient(135deg, #C9A85C 0%, #B8923E 100%)",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              backgroundClip: "text",
+            }}
+          >
+            Trakie
+          </h1>
+          <span className="text-xs uppercase tracking-wider" style={{ color: "#A8A093", letterSpacing: "1px" }}>
+            Session Complete
+          </span>
+        </div>
+        <p className="text-sm" style={{ color: "#A8A093" }}>
+          {invoice ? "Invoice" : "No invoice"} + {labels.length} {labels.length === 1 ? "label" : "labels"} sent to desktop
+        </p>
+      </header>
+
+      {/* Scrollable body */}
+      <main className="flex flex-1 flex-col gap-4 p-5 pb-32">
+        {invoice && (
+          <CaptureCard
+            record={invoice}
+            expanded={expandedId === invoice.id}
+            onToggle={() => toggle(invoice.id)}
+          />
+        )}
+        {labels.map((record) => (
+          <CaptureCard
+            key={record.id}
+            record={record}
+            expanded={expandedId === record.id}
+            onToggle={() => toggle(record.id)}
+          />
+        ))}
+        {records.length === 0 && (
+          <div
+            className="flex flex-col items-center gap-2 rounded-2xl p-8 text-center"
+            style={{
+              background: "rgba(255, 255, 255, 0.03)",
+              border: "1px solid rgba(201, 168, 92, 0.2)",
+            }}
+          >
+            <p className="text-sm" style={{ color: "#A8A093" }}>
+              No captures in this session.
+            </p>
+          </div>
+        )}
+      </main>
+
+      {/* Sticky bottom action bar */}
+      <div
+        className="fixed inset-x-0 bottom-0 z-20 flex items-center gap-3 px-5 py-4"
+        style={{
+          background: "rgba(7, 7, 9, 0.9)",
+          borderTop: "1px solid rgba(201, 168, 92, 0.2)",
+          backdropFilter: "blur(10px)",
+          WebkitBackdropFilter: "blur(10px)",
+        }}
+      >
+        <button
+          onClick={handleCopy}
+          className="flex-1 rounded-xl px-5 py-3 text-sm font-semibold"
+          style={{
+            background: "rgba(255, 255, 255, 0.08)",
+            border: "1px solid rgba(201, 168, 92, 0.3)",
+            color: "#C9A85C",
+          }}
+        >
+          {copied ? "Copied!" : "Copy summary"}
+        </button>
+        <button
+          onClick={onClose}
+          className="flex-1 rounded-xl px-5 py-3 text-sm font-semibold"
+          style={{
+            background: "linear-gradient(135deg, #C9A85C 0%, #B8923E 100%)",
+            color: "#000",
+            boxShadow: "0 0 20px rgba(201, 168, 92, 0.25)",
+          }}
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Individual capture card ──────────────────────────────────────────────
+
+function CaptureCard({
+  record,
+  expanded,
+  onToggle,
+}: {
+  record: CaptureRecord;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  const isInvoice = record.captureType === "invoice";
+  const title = isInvoice ? "Invoice" : `Label ${record.labelIndex ?? ""}`.trim();
+
+  return (
+    <div
+      className="rounded-2xl overflow-hidden"
+      style={{
+        background: "rgba(255, 255, 255, 0.03)",
+        border: "1px solid rgba(201, 168, 92, 0.2)",
+      }}
+    >
+      <button
+        onClick={onToggle}
+        className="flex w-full items-start gap-4 p-4 text-left"
+      >
+        {/* Thumbnail */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={record.imageData}
+          alt={title}
+          className="h-20 w-20 flex-shrink-0 rounded-xl object-cover"
+          style={{ border: "1px solid rgba(201, 168, 92, 0.15)" }}
+        />
+
+        {/* Summary column */}
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <div className="flex items-center justify-between gap-2">
+            <span
+              className="text-xs uppercase tracking-widest"
+              style={{ color: "#C9A85C", letterSpacing: "1.5px" }}
+            >
+              {title}
+            </span>
+            <ChevronIcon open={expanded} />
+          </div>
+          <CardSummary record={record} />
+        </div>
+      </button>
+
+      {expanded && !record.error && record.extraction && (
+        <div
+          className="px-4 pb-4"
+          style={{ borderTop: "1px solid rgba(201, 168, 92, 0.12)" }}
+        >
+          {isInvoice ? (
+            <InvoiceLineItems extraction={record.extraction} />
+          ) : (
+            <LabelFields extraction={record.extraction} />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ChevronIcon({ open }: { open: boolean }) {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="#A8A093"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}
+    >
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
+  );
+}
+
+function CardSummary({ record }: { record: CaptureRecord }) {
+  if (record.error) {
+    return (
+      <span className="text-sm" style={{ color: "#ef4444" }}>
+        Extraction failed — {record.error}
+      </span>
+    );
+  }
+  if (!record.extraction) {
+    return (
+      <span className="text-sm" style={{ color: "#A8A093" }}>
+        Still processing…
+      </span>
+    );
+  }
+
+  const items = record.extraction.lineItems ?? [];
+
+  if (record.captureType === "invoice") {
+    const vendor = items[0]?.vendorName?.value ?? null;
+    return (
+      <>
+        {vendor && (
+          <span className="text-base font-semibold truncate" style={{ color: "#FAFAF8" }}>
+            {vendor}
+          </span>
+        )}
+        <span className="text-sm" style={{ color: "#A8A093" }}>
+          {items.length} line {items.length === 1 ? "item" : "items"}
+        </span>
+      </>
+    );
+  }
+
+  const item = items[0];
+  if (!item) {
+    return (
+      <span className="text-sm" style={{ color: "#A8A093" }}>
+        No data extracted
+      </span>
+    );
+  }
+
+  const productName = formatFieldValue("productName", item.productName);
+  const brand = formatFieldValue("brand", item.brand);
+  const weight = formatFieldValue("netWeightOrUnitCount", item.netWeightOrUnitCount);
+  const thc = formatFieldValue("thc", item.thc);
+
+  const subheadParts = [brand, weight].filter(Boolean);
+  const tertiaryParts: string[] = [];
+  if (thc) tertiaryParts.push(`THC ${thc}`);
+  const cbd = formatFieldValue("cbd", item.cbd);
+  if (cbd) tertiaryParts.push(`CBD ${cbd}`);
+
+  return (
+    <>
+      <span className="text-base font-semibold truncate" style={{ color: "#FAFAF8" }}>
+        {productName ?? "—"}
+      </span>
+      {subheadParts.length > 0 && (
+        <span className="text-sm truncate" style={{ color: "#A8A093" }}>
+          {subheadParts.join(" • ")}
+        </span>
+      )}
+      {tertiaryParts.length > 0 && (
+        <span className="text-xs" style={{ color: "#A8A093" }}>
+          {tertiaryParts.join(" • ")}
+        </span>
+      )}
+    </>
+  );
+}
+
+function InvoiceLineItems({ extraction }: { extraction: ExtractionResponse }) {
+  const items = extraction.lineItems ?? [];
+  if (items.length === 0) {
+    return (
+      <p className="pt-3 text-sm" style={{ color: "#A8A093" }}>
+        No line items extracted.
+      </p>
+    );
+  }
+  return (
+    <div className="flex flex-col gap-3 pt-3">
+      {items.map((item, i) => (
+        <div
+          key={i}
+          className="rounded-xl p-3"
+          style={{
+            background: "rgba(255, 255, 255, 0.02)",
+            border: "1px solid rgba(201, 168, 92, 0.1)",
+          }}
+        >
+          <div className="mb-1 text-xs uppercase tracking-widest" style={{ color: "#C9A85C", letterSpacing: "1px" }}>
+            Item {i + 1}
+          </div>
+          {INVOICE_LINEITEM_KEY_FIELDS.map((key) => {
+            const field = item[key] as ExtractedField<string | number> | undefined;
+            const val = formatFieldValue(key, field);
+            if (!val || !field) return null;
+            return (
+              <FieldRow
+                key={key}
+                label={FIELD_LABELS[key]}
+                value={val}
+                confidence={field.confidence}
+              />
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function LabelFields({ extraction }: { extraction: ExtractionResponse }) {
+  const item = extraction.lineItems?.[0];
+  if (!item) {
+    return (
+      <p className="pt-3 text-sm" style={{ color: "#A8A093" }}>
+        No data extracted.
+      </p>
+    );
+  }
+  const keys = Object.keys(FIELD_LABELS) as Array<keyof ExtractionResult>;
+  const rows = keys
+    .map((key) => {
+      const field = item[key] as ExtractedField<string | number> | undefined;
+      const val = formatFieldValue(key, field);
+      if (!val || !field) return null;
+      return (
+        <FieldRow
+          key={key}
+          label={FIELD_LABELS[key]}
+          value={val}
+          confidence={field.confidence}
+        />
+      );
+    })
+    .filter(Boolean);
+  return <div className="flex flex-col pt-3">{rows}</div>;
+}
+
 // ─── Main receive content ──────────────────────────────────────────────────
 
 function ReceiveContent() {
@@ -339,9 +844,49 @@ function ReceiveContent() {
     "connecting" | "capturing-invoice" | "capturing-labels" | "done"
   >("connecting");
   const [labelCount, setLabelCount] = useState(0);
+  const [captureRecords, setCaptureRecords] = useState<CaptureRecord[]>([]);
 
-  const { status, disconnect, sendImage, extractionPhase, extractionError, resetExtraction } =
-    useRelay(sessionId);
+  const {
+    status,
+    sendImage,
+    sendSessionComplete,
+    extractionPhase,
+    extractionError,
+    lastExtraction,
+    resetExtraction,
+  } = useRelay(sessionId);
+
+  // Merge incoming extraction payload into the most recent pending record
+  useEffect(() => {
+    if (extractionPhase === "complete" && lastExtraction) {
+      setCaptureRecords((prev) => {
+        const idx = [...prev]
+          .reverse()
+          .findIndex((r) => r.extraction === null && r.error === null);
+        if (idx === -1) return prev;
+        const realIdx = prev.length - 1 - idx;
+        const next = prev.slice();
+        next[realIdx] = { ...next[realIdx], extraction: lastExtraction };
+        return next;
+      });
+    }
+  }, [extractionPhase, lastExtraction]);
+
+  // Attach error to the most recent pending record
+  useEffect(() => {
+    if (extractionPhase === "error" && extractionError) {
+      setCaptureRecords((prev) => {
+        const idx = [...prev]
+          .reverse()
+          .findIndex((r) => r.extraction === null && r.error === null);
+        if (idx === -1) return prev;
+        const realIdx = prev.length - 1 - idx;
+        const next = prev.slice();
+        next[realIdx] = { ...next[realIdx], error: extractionError };
+        return next;
+      });
+    }
+  }, [extractionPhase, extractionError]);
 
   // Auto-transition to invoice capture once paired
   useEffect(() => {
@@ -372,9 +917,11 @@ function ReceiveContent() {
   }, [extractionPhase, appState, resetExtraction]);
 
   const handleDone = useCallback(() => {
+    const invoiceCount = captureRecords.filter((r) => r.captureType === "invoice").length;
+    const labels = captureRecords.filter((r) => r.captureType === "label").length;
+    sendSessionComplete({ invoiceCount, labelCount: labels });
     setAppState("done");
-    disconnect();
-  }, [disconnect]);
+  }, [captureRecords, sendSessionComplete]);
 
   const handleScan = useCallback((decodedText: string) => {
     try {
@@ -389,6 +936,19 @@ function ReceiveContent() {
   const handleCaptureInvoice = useCallback(
     (imageData: string) => {
       sendImage(imageData, "invoice");
+      setCaptureRecords((prev) => [
+        ...prev,
+        {
+          id:
+            typeof crypto !== "undefined" && "randomUUID" in crypto
+              ? crypto.randomUUID()
+              : `invoice-${Date.now()}`,
+          captureType: "invoice",
+          imageData,
+          extraction: null,
+          error: null,
+        },
+      ]);
     },
     [sendImage]
   );
@@ -396,9 +956,31 @@ function ReceiveContent() {
   const handleCaptureLabel = useCallback(
     (imageData: string) => {
       sendImage(imageData, "label");
+      const nextIndex = labelCount + 1;
+      setCaptureRecords((prev) => [
+        ...prev,
+        {
+          id:
+            typeof crypto !== "undefined" && "randomUUID" in crypto
+              ? crypto.randomUUID()
+              : `label-${Date.now()}`,
+          captureType: "label",
+          labelIndex: nextIndex,
+          imageData,
+          extraction: null,
+          error: null,
+        },
+      ]);
     },
-    [sendImage]
+    [sendImage, labelCount]
   );
+
+  const handleClose = useCallback(() => {
+    setCaptureRecords([]);
+    setLabelCount(0);
+    setSessionId(null);
+    setAppState("connecting");
+  }, []);
 
   // ── Invoice capture ──
   if (appState === "capturing-invoice") {
@@ -430,27 +1012,7 @@ function ReceiveContent() {
 
   // ── Session complete ──
   if (appState === "done") {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-5 bg-background text-foreground p-6">
-        <div
-          className="flex h-20 w-20 items-center justify-center rounded-2xl"
-          style={{
-            background: "linear-gradient(135deg, #C9A85C 0%, #B8923E 100%)",
-            boxShadow: "0 0 40px rgba(201, 168, 92, 0.4)",
-          }}
-        >
-          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#000" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="20 6 9 17 4 12" />
-          </svg>
-        </div>
-        <h2 className="text-xl font-semibold" style={{ color: "#FAFAF8" }}>
-          Session complete
-        </h2>
-        <p className="text-sm text-center" style={{ color: "#A8A093" }}>
-          Invoice + {labelCount} {labelCount === 1 ? "label" : "labels"} sent to Trakie
-        </p>
-      </div>
-    );
+    return <CompletionScreen records={captureRecords} onClose={handleClose} />;
   }
 
   // ── Connection / QR-scan view ──

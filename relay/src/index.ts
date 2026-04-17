@@ -134,6 +134,15 @@ io.on("connection", (socket) => {
       });
   });
 
+  socket.on("session:complete", (data) => {
+    const { sessionId } = socket.data;
+    if (!sessionId) return;
+    socket.to(sessionId).emit("session:complete", data);
+    console.log(
+      `[socket] session:complete forwarded in session ${sessionId} (invoice=${data.invoiceCount}, labels=${data.labelCount})`
+    );
+  });
+
   socket.on("disconnect", (reason) => {
     console.log(`[socket] disconnected: ${socket.id} (${reason})`);
 

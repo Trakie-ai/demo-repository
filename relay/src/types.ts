@@ -19,6 +19,12 @@ export interface ServerToClientEvents {
     imageData: string;
     captureType: "invoice" | "label";
   }) => void;
+  /** Mobile has finished the session (user tapped Done) */
+  "session:complete": (data: {
+    sessionId: string;
+    invoiceCount: number;
+    labelCount: number;
+  }) => void;
   /** Extraction has started */
   "extraction:started": (data: ExtractionStartedPayload) => void;
   /** A single field has been parsed from the stream */
@@ -43,6 +49,12 @@ export interface ClientToServerEvents {
     sessionId: string;
     imageData: string;
     captureType: "invoice" | "label";
+  }) => void;
+  /** Mobile notifies that the session is complete (user tapped Done) */
+  "session:complete": (data: {
+    sessionId: string;
+    invoiceCount: number;
+    labelCount: number;
   }) => void;
 }
 

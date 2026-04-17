@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { io, type Socket } from "socket.io-client";
 import { RELAY_URL } from "@/lib/constants";
+import type { ExtractionResponse } from "@/types/extraction";
 
 export type RelayStatus =
   | "idle"
@@ -18,6 +19,7 @@ export function useRelay(sessionId: string | null) {
   const [status, setStatus] = useState<RelayStatus>("idle");
   const [extractionPhase, setExtractionPhase] = useState<ExtractionPhase>("idle");
   const [extractionError, setExtractionError] = useState<string | null>(null);
+  const [lastExtraction, setLastExtraction] = useState<ExtractionResponse | null>(null);
   const socketRef = useRef<Socket | null>(null);
 
   const disconnect = useCallback(() => {
@@ -68,10 +70,14 @@ export function useRelay(sessionId: string | null) {
 
     socket.on("extraction:started", () => {
       setExtractionError(null);
+      setLastExtraction(null);
       setExtractionPhase("processing");
     });
 
-    socket.on("extraction:complete", () => {
+    socket.on("extraction:complete", (data: { extraction: ExtractionResponse }) => {
+      if (data?.extraction) {
+        setLastExtraction(data.extraction);
+      }
       setExtractionPhase("complete");
     });
 
@@ -109,8 +115,18 @@ export function useRelay(sessionId: string | null) {
     [sessionId]
   );
 
+  const sendSessionComplete = useCallback(
+    (counts: { invoiceCount: number; labelCount: number }) => {
+      const socket = socketRef.current;
+      if (!socket || !sessionId) return;
+      socket.emit("session:complete", { sessionId, ...counts });
+    },
+    [sessionId]
+  );
+
   const resetExtraction = useCallback(() => {
     setExtractionError(null);
+    setLastExtraction(null);
     setExtractionPhase("idle");
   }, []);
 
@@ -118,8 +134,10 @@ export function useRelay(sessionId: string | null) {
     status,
     disconnect,
     sendImage,
+    sendSessionComplete,
     extractionPhase,
     extractionError,
+    lastExtraction,
     resetExtraction,
   };
 }
