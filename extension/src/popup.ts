@@ -58,21 +58,24 @@ async function renderQR(sessionId: string) {
 
 // ─── Extraction panel ──────────────────────────────────────────────────────
 
-const lineItemRecords: DutchieRecordWithMeta[] = [];
+type CaptureGroup = {
+  id: string;
+  captureType: "invoice" | "label";
+  labelIndex?: number;
+  records: DutchieRecordWithMeta[];
+  listEl: HTMLOListElement;
+  statusEl: HTMLElement;
+};
+
+let groups: CaptureGroup[] = [];
+let currentGroup: CaptureGroup | null = null;
+let groupCounter = 0;
+let labelCounter = 0;
 
 function formatValue(value: string | number | null): string {
   if (value === null || value === undefined || value === "") return "—";
   if (typeof value === "number") return value.toLocaleString();
   return value;
-}
-
-function setExtractionStatus(text: string, mode: "normal" | "complete" | "error" = "normal") {
-  const el = document.getElementById("extraction-status");
-  if (!el) return;
-  el.textContent = text;
-  el.classList.remove("is-complete", "is-error");
-  if (mode === "complete") el.classList.add("is-complete");
-  if (mode === "error") el.classList.add("is-error");
 }
 
 function showExtractionPanel() {
@@ -81,29 +84,84 @@ function showExtractionPanel() {
 }
 
 function resetExtractionPanel() {
-  lineItemRecords.length = 0;
+  groups = [];
+  currentGroup = null;
+  groupCounter = 0;
+  labelCounter = 0;
   const list = document.getElementById("line-items");
   if (list) list.innerHTML = "";
-  setExtractionStatus("Extracting…");
+  const banner = document.getElementById("session-banner");
+  if (banner) banner.hidden = true;
 }
 
-function ensureLineItemSlot(index: number): DutchieRecordWithMeta {
-  while (lineItemRecords.length <= index) {
-    lineItemRecords.push(emptyDutchieRecord());
-    const list = document.getElementById("line-items");
-    if (list) {
-      const idx = lineItemRecords.length - 1;
-      const li = document.createElement("li");
-      li.className = "line-item";
-      li.id = `line-item-${idx}`;
-      const header = document.createElement("div");
-      header.className = "line-item-header";
-      header.textContent = `Line item ${idx + 1}`;
-      li.appendChild(header);
-      list.appendChild(li);
-    }
+function startCaptureGroup(captureType: "invoice" | "label"): CaptureGroup {
+  groupCounter++;
+  let labelIndex: number | undefined;
+  let titleText: string;
+  if (captureType === "invoice") {
+    titleText = "Invoice";
+  } else {
+    labelCounter++;
+    labelIndex = labelCounter;
+    titleText = `Label ${labelCounter}`;
   }
-  return lineItemRecords[index];
+
+  const list = document.getElementById("line-items") as HTMLOListElement | null;
+  if (!list) throw new Error("extraction list container missing");
+
+  const groupEl = document.createElement("li");
+  groupEl.className = `capture-group capture-group--${captureType}`;
+  groupEl.id = `capture-group-${groupCounter}`;
+
+  const header = document.createElement("div");
+  header.className = "group-header";
+
+  const title = document.createElement("span");
+  title.className = "group-title";
+  title.textContent = titleText;
+  header.appendChild(title);
+
+  const statusEl = document.createElement("span");
+  statusEl.className = "group-status";
+  statusEl.textContent = "Extracting…";
+  header.appendChild(statusEl);
+
+  groupEl.appendChild(header);
+
+  const groupList = document.createElement("ol");
+  groupList.className = "group-items";
+  groupEl.appendChild(groupList);
+
+  list.appendChild(groupEl);
+
+  const group: CaptureGroup = {
+    id: groupEl.id,
+    captureType,
+    labelIndex,
+    records: [],
+    listEl: groupList,
+    statusEl,
+  };
+
+  groups.push(group);
+  currentGroup = group;
+  return group;
+}
+
+function ensureLineItemSlot(group: CaptureGroup, index: number): DutchieRecordWithMeta {
+  while (group.records.length <= index) {
+    group.records.push(emptyDutchieRecord());
+    const idx = group.records.length - 1;
+    const li = document.createElement("li");
+    li.className = "line-item";
+    li.id = `${group.id}-item-${idx}`;
+    const header = document.createElement("div");
+    header.className = "line-item-header";
+    header.textContent = `Line item ${idx + 1}`;
+    li.appendChild(header);
+    group.listEl.appendChild(li);
+  }
+  return group.records[index];
 }
 
 function renderField(
@@ -112,16 +170,23 @@ function renderField(
   value: string | number | null,
   confidence: Confidence
 ) {
-  const record = ensureLineItemSlot(lineItemIndex);
+  if (!currentGroup) {
+    // No captureType context yet — seed a fallback invoice group so fields
+    // aren't dropped. This should only happen if events arrive before
+    // image:captured (shouldn't with current relay ordering).
+    startCaptureGroup("invoice");
+  }
+  const group = currentGroup!;
+  const record = ensureLineItemSlot(group, lineItemIndex);
   applyFieldToRecord(record, fieldName, value, confidence);
 
   if (!(fieldName in DUTCHIE_FIELD_LABELS)) return;
   const key = fieldName as keyof DutchieReceivingRecord;
 
-  const itemEl = document.getElementById(`line-item-${lineItemIndex}`);
+  const itemEl = document.getElementById(`${group.id}-item-${lineItemIndex}`);
   if (!itemEl) return;
 
-  const rowId = `field-${lineItemIndex}-${fieldName}`;
+  const rowId = `${group.id}-field-${lineItemIndex}-${fieldName}`;
   let row = document.getElementById(rowId);
   if (!row) {
     row = document.createElement("div");
@@ -146,7 +211,8 @@ function renderField(
     const siblings = Array.from(itemEl.querySelectorAll<HTMLElement>(".field-row"));
     const keyOrder = DUTCHIE_FIELD_ORDER.indexOf(key);
     const insertBefore = siblings.find((sib) => {
-      const sibKey = sib.id.split("-").slice(2).join("-");
+      const parts = sib.id.split("-field-")[1]?.split("-") ?? [];
+      const sibKey = parts.slice(1).join("-");
       return (
         DUTCHIE_FIELD_ORDER.indexOf(sibKey as keyof DutchieReceivingRecord) > keyOrder
       );
@@ -169,6 +235,30 @@ function renderField(
     valueEl.textContent = formatted;
     valueEl.classList.toggle("is-null", formatted === "—");
   }
+}
+
+function setGroupStatus(
+  group: CaptureGroup,
+  text: string,
+  mode: "normal" | "complete" | "error" = "normal"
+) {
+  group.statusEl.textContent = text;
+  group.statusEl.classList.remove("is-complete", "is-error");
+  if (mode === "complete") group.statusEl.classList.add("is-complete");
+  if (mode === "error") group.statusEl.classList.add("is-error");
+}
+
+function showSessionBanner(invoiceCount: number, labelCount: number) {
+  const banner = document.getElementById("session-banner");
+  if (!banner) return;
+  const label = document.getElementById("session-banner-text");
+  if (label) {
+    const parts: string[] = [];
+    if (invoiceCount > 0) parts.push(`${invoiceCount} invoice${invoiceCount === 1 ? "" : "s"}`);
+    parts.push(`${labelCount} label${labelCount === 1 ? "" : "s"}`);
+    label.textContent = `Session complete · ${parts.join(" + ")}`;
+  }
+  banner.hidden = false;
 }
 
 // ─── Socket ───────────────────────────────────────────────────────────────
@@ -211,15 +301,17 @@ function connectRelay(sessionId: string) {
 
   socket.on(
     "image:captured",
-    (data: { sessionId: string; imageData: string; captureType: string }) => {
+    (data: { sessionId: string; imageData: string; captureType: "invoice" | "label" }) => {
       const kb = Math.round((data.imageData.length * 0.75) / 1024);
       console.log(`[trakie] ${data.captureType} image received: ~${kb}KB`);
+      showExtractionPanel();
+      startCaptureGroup(data.captureType);
     }
   );
 
   socket.on("extraction:started", () => {
     showExtractionPanel();
-    resetExtractionPanel();
+    if (currentGroup) setGroupStatus(currentGroup, "Extracting…");
   });
 
   socket.on(
@@ -240,7 +332,13 @@ function connectRelay(sessionId: string) {
     "extraction:complete",
     (data: { sessionId: string; extraction: { lineItems: unknown[] } }) => {
       const count = data.extraction?.lineItems?.length ?? 0;
-      setExtractionStatus(`Complete · ${count} item${count === 1 ? "" : "s"}`, "complete");
+      if (currentGroup) {
+        setGroupStatus(
+          currentGroup,
+          `Complete · ${count} item${count === 1 ? "" : "s"}`,
+          "complete"
+        );
+      }
     }
   );
 
@@ -248,7 +346,14 @@ function connectRelay(sessionId: string) {
     "extraction:error",
     (data: { sessionId: string; error: string }) => {
       showExtractionPanel();
-      setExtractionStatus(`Error: ${data.error}`, "error");
+      if (currentGroup) setGroupStatus(currentGroup, `Error: ${data.error}`, "error");
+    }
+  );
+
+  socket.on(
+    "session:complete",
+    (data: { sessionId: string; invoiceCount: number; labelCount: number }) => {
+      showSessionBanner(data.invoiceCount, data.labelCount);
     }
   );
 
