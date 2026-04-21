@@ -1,5 +1,5 @@
 /** Confidence level for an extracted field */
-export type Confidence = "green" | "yellow" | "red";
+export type Confidence = "green" | "red";
 
 /** A single extracted field with its value and confidence */
 export interface ExtractedField<T> {

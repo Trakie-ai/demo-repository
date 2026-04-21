@@ -414,11 +414,18 @@ body {
 }
 
 .confidence-dot {
-  width: 10px;
-  height: 10px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   flex-shrink: 0;
   background: var(--color-text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #0b0f0d;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1;
 }
 
 .confidence-dot.confidence-green {
@@ -426,9 +433,8 @@ body {
   box-shadow: 0 0 6px rgba(74, 222, 128, 0.55);
 }
 
-.confidence-dot.confidence-yellow {
-  background: #fbbf24;
-  box-shadow: 0 0 6px rgba(251, 191, 36, 0.5);
+.confidence-dot.confidence-green::before {
+  content: "✓";
 }
 
 .confidence-dot.confidence-red {

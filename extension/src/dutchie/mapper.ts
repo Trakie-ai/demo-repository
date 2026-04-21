@@ -6,7 +6,7 @@ import type {
 import { DUTCHIE_FIELD_ORDER } from "./types.js";
 
 export function needsReview(confidence: Confidence): boolean {
-  return confidence === "yellow" || confidence === "red";
+  return confidence === "red";
 }
 
 export function emptyDutchieRecord(): DutchieRecordWithMeta {

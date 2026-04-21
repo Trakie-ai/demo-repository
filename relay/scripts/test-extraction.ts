@@ -26,7 +26,7 @@ console.log("---");
 const start = Date.now();
 
 function flag(confidence: string): string {
-  return confidence === "green" ? "G" : confidence === "yellow" ? "Y" : "R";
+  return confidence === "green" ? "G" : "R";
 }
 
 extractInvoiceDataStreaming(base64, {

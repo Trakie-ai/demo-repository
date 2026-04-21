@@ -30,7 +30,6 @@ function stripDataUrl(imageData: string): string {
 
 const VALID_CONFIDENCES: ReadonlySet<Confidence> = new Set([
   "green",
-  "yellow",
   "red",
 ]);
 
@@ -91,7 +90,7 @@ export async function extractInvoiceDataStreaming(
           },
           {
             type: "text",
-            text: "Extract all line items from this cannabis invoice. For each field, provide the value and a confidence level (green/yellow/red).",
+            text: "Extract all line items from this cannabis invoice. For each field, provide the value and a confidence level (green = confident, red = needs review).",
           },
         ],
       },

@@ -347,7 +347,6 @@ type CaptureRecord = {
 
 const CONFIDENCE_COLOR: Record<Confidence, string> = {
   green: "#10b981",
-  yellow: "#f59e0b",
   red: "#ef4444",
 };
 
@@ -391,13 +390,19 @@ function formatFieldValue(
 function ConfidenceDot({ confidence }: { confidence: Confidence }) {
   return (
     <span
-      className="inline-block rounded-full"
+      className="inline-flex items-center justify-center rounded-full font-bold"
       style={{
-        width: 6,
-        height: 6,
+        width: 14,
+        height: 14,
         background: CONFIDENCE_COLOR[confidence],
+        color: "#0b0f0d",
+        fontSize: 9,
+        lineHeight: 1,
       }}
-    />
+      aria-label={confidence === "green" ? "Verified" : "Needs review"}
+    >
+      {confidence === "green" ? "✓" : ""}
+    </span>
   );
 }
 

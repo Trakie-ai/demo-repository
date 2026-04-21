@@ -1,4 +1,4 @@
-export type Confidence = "green" | "yellow" | "red";
+export type Confidence = "green" | "red";
 
 export interface ExtractionFieldEvent {
   sessionId: string;

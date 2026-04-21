@@ -29,7 +29,7 @@ ingredients, allergens,
 vendorName, quantityReceived
 ```
 
-Each field has a `value` plus `meta.confidence` (green/yellow/red) and `meta.needsReview`.
+Each field has a `value` plus `meta.confidence` (green/red) and `meta.needsReview`. Confidence is binary: green means the extractor is confident and the field can fill silently; red means the field needs human review (uncertain, partially legible, inferred, or missing).
 
 ## Proposed architecture
 
@@ -44,8 +44,8 @@ Each field has a `value` plus `meta.confidence` (green/yellow/red) and `meta.nee
    - Dropdowns are the scary part: Dutchie likely uses its own combobox components, so "type + pick matching option" logic is probably needed.
    - Fire native `input` / `change` events after setting values so React-controlled inputs don't discard the write.
 4. **Per-field confidence surfacing**.
-   - Red/yellow fields should end up visually flagged in Dutchie (e.g., a tooltip badge or a background color applied via injected CSS).
-   - Green fields fill silently.
+   - Red fields should end up visually flagged in Dutchie (e.g., a tooltip badge or a background color applied via injected CSS) so the operator knows to review them.
+   - Green fields fill silently, optionally with a small checkmark indicator to signal "verified by Trakie".
 5. **Row handling**.
    - Invoice captures produce multiple line items; labels produce one each. Decide:
      - One row per invoice line item + one row per label?
