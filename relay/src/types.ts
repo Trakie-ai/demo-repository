@@ -41,7 +41,12 @@ export interface ServerToClientEvents {
 export interface ClientToServerEvents {
   /** Join a session room by session ID */
   "session:join": (
-    data: { sessionId: string; deviceType: "extension" | "mobile" },
+    data: {
+      sessionId: string;
+      deviceType: "extension" | "mobile";
+      /** Required when deviceType === "extension"; opaque token issued by trakie.ai */
+      token?: string;
+    },
     callback: (response: { ok: boolean; error?: string }) => void
   ) => void;
   /** Send a captured image to be relayed to the extension */
@@ -62,4 +67,6 @@ export interface ClientToServerEvents {
 export interface SocketData {
   sessionId: string;
   deviceType: "extension" | "mobile";
+  /** Trakie user id when the extension authenticated successfully. */
+  userId?: string;
 }

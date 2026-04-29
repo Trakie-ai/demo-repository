@@ -9,6 +9,7 @@ import type {
   SocketData,
 } from "./types.js";
 import { extractInvoiceDataStreaming } from "./extraction/index.js";
+import { verifyExtensionToken } from "./auth.js";
 
 const PORT = parseInt(process.env.PORT || "3001", 10);
 const CORS_ORIGIN = process.env.CORS_ORIGIN || "*";
@@ -40,7 +41,7 @@ io.on("connection", (socket) => {
   console.log(`[socket] connected: ${socket.id}`);
 
   socket.on("session:join", async (data, callback) => {
-    const { sessionId, deviceType } = data;
+    const { sessionId, deviceType, token } = data;
 
     if (!sessionId || !deviceType) {
       callback({ ok: false, error: "Missing sessionId or deviceType" });
@@ -50,6 +51,22 @@ io.on("connection", (socket) => {
     if (deviceType !== "extension" && deviceType !== "mobile") {
       callback({ ok: false, error: "Invalid deviceType" });
       return;
+    }
+
+    // Extensions must present a Trakie subscription token. Mobile devices
+    // inherit access by joining a session that already has an authenticated
+    // extension — they aren't gated here.
+    let userId: string | undefined;
+    if (deviceType === "extension") {
+      const verify = await verifyExtensionToken(token);
+      if (!verify.ok) {
+        console.log(
+          `[socket] extension join refused for session ${sessionId}: ${verify.reason}`
+        );
+        callback({ ok: false, error: verify.reason });
+        return;
+      }
+      userId = verify.userId;
     }
 
     // Check for duplicate device type already in room
@@ -70,10 +87,11 @@ io.on("connection", (socket) => {
     // Store session info on socket and join room
     socket.data.sessionId = sessionId;
     socket.data.deviceType = deviceType;
+    if (userId) socket.data.userId = userId;
     await socket.join(sessionId);
 
     console.log(
-      `[socket] ${deviceType} ${socket.id} joined session ${sessionId}`
+      `[socket] ${deviceType} ${socket.id} joined session ${sessionId}${userId ? ` (user=${userId})` : ""}`
     );
     callback({ ok: true });
 
@@ -156,6 +174,12 @@ io.on("connection", (socket) => {
 if (!process.env.ANTHROPIC_API_KEY) {
   console.warn(
     "[relay] WARNING: ANTHROPIC_API_KEY not set — invoice extraction will fail"
+  );
+}
+
+if (!process.env.RELAY_SHARED_SECRET) {
+  console.warn(
+    "[relay] WARNING: RELAY_SHARED_SECRET not set — extension joins will be refused"
   );
 }
 
