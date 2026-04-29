@@ -20,8 +20,50 @@
     </header>
 
     <main class="content">
+      <!-- Sign-in gate -->
+      <section id="signin-gate" class="gate" hidden>
+        <h2 class="gate-title">Sign in to use Trakie</h2>
+        <p class="gate-body">
+          Open Trakie.ai to generate a pairing code, then paste it here to sign in.
+        </p>
+        <button class="gate-primary" type="button" data-action="open-trakie">
+          Open Trakie.ai to sign in
+        </button>
+        <div class="gate-divider"><span>then</span></div>
+        <label class="gate-label" for="pairing-code-input">Paste your pairing code</label>
+        <input
+          id="pairing-code-input"
+          class="gate-code-input"
+          type="text"
+          autocomplete="off"
+          autocapitalize="characters"
+          spellcheck="false"
+          maxlength="8"
+          placeholder="XXXXXXXX"
+          data-role="code-input"
+        />
+        <p class="gate-error" data-role="error" hidden></p>
+        <button class="gate-secondary" type="button" data-action="connect-code">
+          Connect
+        </button>
+      </section>
+
+      <!-- Subscription gate -->
+      <section id="subscription-gate" class="gate" hidden>
+        <h2 class="gate-title">Active subscription required</h2>
+        <p class="gate-body">
+          Your Trakie account doesn't have an active subscription. Reactivate to use the extension.
+        </p>
+        <button class="gate-primary" type="button" data-action="manage-subscription">
+          Manage subscription
+        </button>
+        <button class="gate-link" type="button" data-action="sign-out">
+          Sign in as a different user
+        </button>
+      </section>
+
       <!-- Connecting view: QR code + hint -->
-      <section id="connecting-view" class="connecting-view">
+      <section id="connecting-view" class="connecting-view" hidden>
         <div id="qr-container" class="qr-container">
           <p class="qr-placeholder">QR code will appear here</p>
         </div>
@@ -38,6 +80,12 @@
         <ol id="capture-list" class="capture-list"></ol>
       </section>
     </main>
+
+    <footer id="signed-in-footer" class="signed-in-footer" hidden>
+      <span class="signed-in-label">Signed in as</span>
+      <span class="signed-in-email" data-role="email"></span>
+      <button class="signed-in-link" type="button" data-action="sign-out">Sign out</button>
+    </footer>
   </div>
 
   <script src="../dist/popup.js" type="module"></script>

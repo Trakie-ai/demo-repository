@@ -4,7 +4,11 @@
   "version": "0.1.0",
   "description": "AI-powered inventory receiving assistant for Dutchie backoffice",
   "permissions": ["activeTab", "storage"],
-  "host_permissions": ["https://*.dutchie.com/*"],
+  "host_permissions": [
+    "https://*.dutchie.com/*",
+    "https://trakie.ai/*",
+    "https://*.trakie.ai/*"
+  ],
   "action": {
     "default_popup": "src/popup.html",
     "default_title": "Trakie"

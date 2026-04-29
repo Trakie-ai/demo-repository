@@ -8,6 +8,19 @@ import type {
 import { DUTCHIE_FIELD_LABELS } from "./dutchie/types.js";
 import { applyFieldToRecord, emptyDutchieRecord } from "./dutchie/mapper.js";
 import { CATEGORY_BY_FIELD, DUTCHIE_CATEGORIES } from "./dutchie/categories.js";
+import {
+  checkAccess,
+  clearAuth,
+  getEmail,
+  getToken,
+} from "./auth.js";
+import {
+  hideAllGates,
+  renderSignInGate,
+  renderSignedInFooter,
+  renderSubscriptionGate,
+  showToast,
+} from "./gate-views.js";
 
 const RELAY_URL = process.env.RELAY_URL || "http://localhost:3001";
 const MOBILE_URL = process.env.MOBILE_URL || "http://localhost:3000";
@@ -398,7 +411,9 @@ function renderField(
 
 // ─── Socket ───────────────────────────────────────────────────────────────
 
-function connectRelay(sessionId: string) {
+let activeSocket: Socket | null = null;
+
+function connectRelay(sessionId: string, token: string) {
   setStatus("connecting");
 
   const socket: Socket = io(RELAY_URL, {
@@ -407,17 +422,21 @@ function connectRelay(sessionId: string) {
     reconnectionAttempts: Infinity,
     reconnectionDelay: 1000,
   });
+  activeSocket = socket;
 
   function joinSession() {
     socket.emit(
       "session:join",
-      { sessionId, deviceType: "extension" as const },
+      { sessionId, deviceType: "extension" as const, token },
       (res: { ok: boolean; error?: string }) => {
         if (res.ok) {
           setStatus("waiting");
-        } else {
-          console.error("[trakie] join failed:", res.error);
+          return;
         }
+        console.error("[trakie] join failed:", res.error);
+        socket.disconnect();
+        activeSocket = null;
+        handleJoinFailure(res.error);
       }
     );
   }
@@ -503,9 +522,92 @@ function connectRelay(sessionId: string) {
   });
 }
 
-document.addEventListener("DOMContentLoaded", async () => {
+function handleJoinFailure(error: string | undefined): void {
+  switch (error) {
+    case "missing_token":
+    case "invalid_token":
+      void clearAuth().then(() => {
+        renderSignInGate({
+          onConnected: () => void runGate(),
+          prefillError: "Your session has expired. Please sign in again.",
+        });
+      });
+      return;
+    case "subscription_required":
+    case "no_subscription":
+      renderSubscriptionGate({ onSignOut: () => void signOutAndReset() });
+      return;
+    case "verify_unavailable":
+      showToast("Can't reach Trakie servers — try again in a moment.");
+      return;
+    default:
+      showToast(error ? `Connection error: ${error}` : "Connection error.");
+  }
+}
+
+async function signOutAndReset(): Promise<void> {
+  if (activeSocket) {
+    activeSocket.disconnect();
+    activeSocket = null;
+  }
+  await clearAuth();
+  await runGate();
+}
+
+async function startSession(): Promise<void> {
+  hideAllGates();
+  const connecting = document.getElementById("connecting-view");
+  if (connecting) connecting.hidden = false;
+
+  const token = await getToken();
+  if (!token) {
+    // Should not happen — runGate would have routed away. Defensive.
+    renderSignInGate({ onConnected: () => void runGate() });
+    return;
+  }
+
+  const email = await getEmail();
+  renderSignedInFooter({ email, onSignOut: () => void signOutAndReset() });
+
   const sessionId = crypto.randomUUID();
   await renderQR(sessionId);
   resetLiveView();
-  connectRelay(sessionId);
+  connectRelay(sessionId, token);
+}
+
+async function runGate(): Promise<void> {
+  const token = await getToken();
+  if (!token) {
+    renderSignInGate({ onConnected: () => void runGate() });
+    const footer = document.getElementById("signed-in-footer");
+    if (footer) footer.hidden = true;
+    return;
+  }
+
+  const access = await checkAccess({ force: true });
+  if (!access.subscribed) {
+    if (access.reason === "invalid_token") {
+      renderSignInGate({
+        onConnected: () => void runGate(),
+        prefillError: "Your session has expired. Please sign in again.",
+      });
+      const footer = document.getElementById("signed-in-footer");
+      if (footer) footer.hidden = true;
+      return;
+    }
+    if (access.reason === "no_subscription") {
+      renderSubscriptionGate({ onSignOut: () => void signOutAndReset() });
+      const footer = document.getElementById("signed-in-footer");
+      if (footer) footer.hidden = true;
+      return;
+    }
+    // verify_unavailable — let the user proceed; the relay is the real gate.
+    showToast("Couldn't verify subscription right now. Trying anyway…");
+  }
+
+  await startSession();
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  void runGate();
 });
