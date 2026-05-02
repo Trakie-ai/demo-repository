@@ -34,7 +34,7 @@ const shared = {
       process.env.MOBILE_URL || "http://localhost:3000"
     ),
     "process.env.TRAKIE_API_URL": JSON.stringify(
-      process.env.TRAKIE_API_URL || "https://trakie.ai"
+      process.env.TRAKIE_API_URL || "https://www.trakie.ai"
     ),
   },
 };

@@ -6,8 +6,8 @@
   "permissions": ["activeTab", "storage"],
   "host_permissions": [
     "https://*.dutchie.com/*",
-    "https://trakie.ai/*",
-    "https://*.trakie.ai/*"
+    "https://*.trakie.ai/*",
+    "https://trakie.ai/*"
   ],
   "action": {
     "default_popup": "src/popup.html",

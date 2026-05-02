@@ -5,7 +5,7 @@
 //   - invalid token    → 30s
 //   - verify failure   → not cached (fail-closed each call)
 
-const TRAKIE_API_URL = process.env.TRAKIE_API_URL || "https://trakie.ai";
+const TRAKIE_API_URL = process.env.TRAKIE_API_URL || "https://www.trakie.ai";
 const SHARED_SECRET = process.env.RELAY_SHARED_SECRET || "";
 
 const OK_TTL_MS = 60_000;

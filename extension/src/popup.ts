@@ -41,6 +41,7 @@ function setStatus(status: Status) {
     disconnected: "Disconnected",
   };
 
+  pill.hidden = false;
   pill.dataset.status = status;
   text.textContent = labels[status];
 
@@ -587,10 +588,10 @@ async function runGate(): Promise<void> {
   const access = await checkAccess({ force: true });
   if (!access.subscribed) {
     if (access.reason === "invalid_token") {
-      renderSignInGate({
-        onConnected: () => void runGate(),
-        prefillError: "Your session has expired. Please sign in again.",
-      });
+      // Stale token on startup — quietly drop it and show the regular
+      // sign-in gate. Don't show "session expired"; the user is already on
+      // the sign-in screen and only needs to paste a fresh code.
+      renderSignInGate({ onConnected: () => void runGate() });
       const footer = document.getElementById("signed-in-footer");
       if (footer) footer.hidden = true;
       return;

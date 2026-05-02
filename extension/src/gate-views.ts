@@ -23,6 +23,11 @@ export function hideAllGates(): void {
   hide("subscription-gate");
 }
 
+function hideStatusPill(): void {
+  const pill = document.getElementById("status-pill");
+  if (pill) pill.hidden = true;
+}
+
 export function renderSignInGate(opts: {
   onConnected: () => void;
   prefillError?: string;
@@ -30,6 +35,7 @@ export function renderSignInGate(opts: {
   hideAllGates();
   hide("connecting-view");
   hide("live-view");
+  hideStatusPill();
   const root = show("signin-gate");
   if (!root) return;
 
@@ -117,6 +123,7 @@ export function renderSubscriptionGate(opts: {
   hideAllGates();
   hide("connecting-view");
   hide("live-view");
+  hideStatusPill();
   const root = show("subscription-gate");
   if (!root) return;
 
