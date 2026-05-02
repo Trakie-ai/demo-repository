@@ -2,7 +2,7 @@
 // /api/extension/exchange-code and presented to /api/extension/status (popup)
 // and the relay (relay then re-verifies it server-side).
 
-const TRAKIE_API_URL = process.env.TRAKIE_API_URL || "https://www.trakie.ai";
+const TRAKIE_API_URL = (process.env.TRAKIE_API_URL || "https://www.trakie.ai").trim().replace(/\/+$/, "");
 const TOKEN_KEY = "trakie.extension.token";
 const EMAIL_KEY = "trakie.extension.email";
 const ACCESS_CACHE_KEY = "trakie.extension.access";
